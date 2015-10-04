@@ -67,17 +67,17 @@ public class AtomixAsyncMap<K, V> implements AsyncMap<K, V> {
 
   @Override
   public void removeIfPresent(K k, V v, Handler<AsyncResult<Boolean>> handler) {
-    // TODO
+    map.remove(k, v).whenComplete(VertxFutures.resultHandler(handler));
   }
 
   @Override
   public void replace(K k, V v, Handler<AsyncResult<V>> handler) {
-    // TODO
+    map.replace(k, v).whenComplete(VertxFutures.resultHandler(handler));
   }
 
   @Override
-  public void replaceIfPresent(K k, V v, V v1, Handler<AsyncResult<Boolean>> handler) {
-    // TODO
+  public void replaceIfPresent(K k, V oldValue, V newValue, Handler<AsyncResult<Boolean>> handler) {
+    map.replace(k, oldValue, newValue).whenComplete(VertxFutures.resultHandler(handler));
   }
 
   @Override
