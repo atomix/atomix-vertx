@@ -99,8 +99,7 @@ public class AtomixClusterManager implements ClusterManager {
 
   @Override
   public String getNodeID() {
-    // TODO
-    return null;
+    return "" + group.member().id();
   }
 
   @Override
