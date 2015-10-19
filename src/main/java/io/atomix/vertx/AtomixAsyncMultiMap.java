@@ -18,7 +18,6 @@ package io.atomix.vertx;
 import io.atomix.catalyst.util.Assert;
 import io.atomix.collections.DistributedMultiMap;
 import io.vertx.core.AsyncResult;
-import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.spi.cluster.AsyncMultiMap;
 import io.vertx.core.spi.cluster.ChoosableIterable;
@@ -37,40 +36,22 @@ public class AtomixAsyncMultiMap<K, V> implements AsyncMultiMap<K, V> {
 
   @Override
   public void add(K k, V v, Handler<AsyncResult<Void>> handler) {
-    map.put(k, v).whenComplete((result, error) -> {
-      if (error == null) {
-        Future.<Void>succeededFuture().setHandler(handler);
-      } else {
-        Future.<Void>failedFuture(error).setHandler(handler);
-      }
-    });
+    map.put(k, v).whenComplete(VertxFutures.voidHandler(handler));
   }
 
   @Override
   public void get(K k, Handler<AsyncResult<ChoosableIterable<V>>> handler) {
-    map.get(k).whenComplete((result, error) -> {
-      if (error == null) {
-        Future.<ChoosableIterable<V>>succeededFuture(new AtomixChoosableIterable<>(result)).setHandler(handler);
-      } else {
-        Future.<ChoosableIterable<V>>failedFuture(error).setHandler(handler);
-      }
-    });
+    map.get(k).whenComplete(VertxFutures.convertHandler(handler, AtomixChoosableIterable::new));
   }
 
   @Override
   public void remove(K k, V v, Handler<AsyncResult<Boolean>> handler) {
-    map.remove(k, v).whenComplete((result, error) -> {
-      if (error == null) {
-        Future.succeededFuture(result).setHandler(handler);
-      } else {
-        Future.<Boolean>failedFuture(error).setHandler(handler);
-      }
-    });
+    map.remove(k, v).whenComplete(VertxFutures.resultHandler(handler));
   }
 
   @Override
   public void removeAllForValue(V v, Handler<AsyncResult<Void>> handler) {
-    // TODO
+    map.removeValue(v).whenComplete(VertxFutures.voidHandler(handler));
   }
 
 }

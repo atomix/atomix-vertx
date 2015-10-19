@@ -65,8 +65,11 @@ public class AtomixMap<K, V> implements Map<K, V> {
 
   @Override
   public boolean containsValue(Object value) {
-    // TODO
-    return false;
+    try {
+      return map.containsValue(value).get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
@@ -88,9 +91,10 @@ public class AtomixMap<K, V> implements Map<K, V> {
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public V remove(Object key) {
     try {
-      return map.remove(key).get();
+      return map.remove((K) key).get();
     } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException(e);
     }
@@ -111,22 +115,19 @@ public class AtomixMap<K, V> implements Map<K, V> {
   @NotNull
   @Override
   public Set<K> keySet() {
-    // TODO
-    return null;
+    throw new UnsupportedOperationException("keySet() not supported");
   }
 
   @NotNull
   @Override
   public Collection<V> values() {
-    // TODO
-    return null;
+    throw new UnsupportedOperationException("values() not supported");
   }
 
   @NotNull
   @Override
   public Set<Entry<K, V>> entrySet() {
-    // TODO
-    return null;
+    throw new UnsupportedOperationException("entrySet() not supported");
   }
 
 }

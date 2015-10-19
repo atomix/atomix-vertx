@@ -48,7 +48,6 @@ public class AtomixClusterManager implements ClusterManager {
   private final Atomix atomix;
   private DistributedMembershipGroup group;
   private NodeListener listener;
-  private Vertx vertx;
   private boolean active;
 
   public AtomixClusterManager(Atomix atomix) {
@@ -57,7 +56,6 @@ public class AtomixClusterManager implements ClusterManager {
 
   @Override
   public void setVertx(Vertx vertx) {
-    this.vertx = vertx;
   }
 
   @Override
