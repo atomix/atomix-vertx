@@ -31,7 +31,7 @@ Collection<Address> members = Arrays.asList(
   new Address("123.456.789.2", 5000)
 );
 
-Atomix atomix = Atomix.builder(address, members)
+Atomix atomix = AtomixReplica.builder(address, members)
   .withTransport(new NettyTransport())
   .withStorage(new Storage(StorageLevel.MEMORY))
   .build();
