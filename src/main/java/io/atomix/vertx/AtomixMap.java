@@ -17,6 +17,7 @@ package io.atomix.vertx;
 
 import io.atomix.catalyst.util.Assert;
 import io.atomix.collections.DistributedMap;
+import io.vertx.core.Vertx;
 
 import java.util.Collection;
 import java.util.Map;
@@ -31,7 +32,7 @@ import java.util.concurrent.ExecutionException;
 public class AtomixMap<K, V> implements Map<K, V> {
   private final DistributedMap<K, V> map;
 
-  public AtomixMap(DistributedMap<K, V> map) {
+  public AtomixMap(Vertx vertx, DistributedMap<K, V> map) {
     this.map = Assert.notNull(map, "map");
   }
 

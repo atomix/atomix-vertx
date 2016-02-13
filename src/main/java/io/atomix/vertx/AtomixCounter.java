@@ -15,10 +15,11 @@
  */
 package io.atomix.vertx;
 
-import io.atomix.atomic.DistributedAtomicLong;
 import io.atomix.catalyst.util.Assert;
+import io.atomix.variables.DistributedLong;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
 import io.vertx.core.shareddata.Counter;
 
 /**
@@ -27,45 +28,47 @@ import io.vertx.core.shareddata.Counter;
  * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
  */
 public class AtomixCounter implements Counter {
-  private final DistributedAtomicLong counter;
+  private final Vertx vertx;
+  private final DistributedLong counter;
 
-  public AtomixCounter(DistributedAtomicLong counter) {
+  public AtomixCounter(Vertx vertx, DistributedLong counter) {
+    this.vertx = Assert.notNull(vertx, "vertx");
     this.counter = Assert.notNull(counter, "counter");
   }
 
   @Override
   public void get(Handler<AsyncResult<Long>> handler) {
-    counter.get().whenComplete(VertxFutures.resultHandler(handler));
+    counter.get().whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
   }
 
   @Override
   public void incrementAndGet(Handler<AsyncResult<Long>> handler) {
-    counter.incrementAndGet().whenComplete(VertxFutures.resultHandler(handler));
+    counter.incrementAndGet().whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
   }
 
   @Override
   public void getAndIncrement(Handler<AsyncResult<Long>> handler) {
-    counter.getAndIncrement().whenComplete(VertxFutures.resultHandler(handler));
+    counter.getAndIncrement().whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
   }
 
   @Override
   public void decrementAndGet(Handler<AsyncResult<Long>> handler) {
-    counter.decrementAndGet().whenComplete(VertxFutures.resultHandler(handler));
+    counter.decrementAndGet().whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
   }
 
   @Override
   public void addAndGet(long delta, Handler<AsyncResult<Long>> handler) {
-    counter.addAndGet(delta).whenComplete(VertxFutures.resultHandler(handler));
+    counter.addAndGet(delta).whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
   }
 
   @Override
   public void getAndAdd(long delta, Handler<AsyncResult<Long>> handler) {
-    counter.getAndAdd(delta).whenComplete(VertxFutures.resultHandler(handler));
+    counter.getAndAdd(delta).whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
   }
 
   @Override
   public void compareAndSet(long expect, long update, Handler<AsyncResult<Boolean>> handler) {
-    counter.compareAndSet(expect, update).whenComplete(VertxFutures.resultHandler(handler));
+    counter.compareAndSet(expect, update).whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
   }
 
 }

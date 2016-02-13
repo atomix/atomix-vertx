@@ -16,6 +16,7 @@
 package io.atomix.vertx;
 
 import io.vertx.core.AsyncResult;
+import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 
@@ -35,12 +36,12 @@ final class VertxFutures {
   /**
    * Wraps a void Vert.x handler.
    */
-  static <T> BiConsumer<T, Throwable> voidHandler(Handler<AsyncResult<Void>> handler) {
+  static <T> BiConsumer<T, Throwable> voidHandler(Handler<AsyncResult<Void>> handler, Context context) {
     return (result, error) -> {
       if (error == null) {
-        Future.<Void>succeededFuture().setHandler(handler);
+        context.runOnContext(v -> Future.<Void>succeededFuture().setHandler(handler));
       } else {
-        Future.<Void>failedFuture(error).setHandler(handler);
+        context.runOnContext(v -> Future.<Void>failedFuture(error).setHandler(handler));
       }
     };
   }
@@ -48,12 +49,12 @@ final class VertxFutures {
   /**
    * Wraps a Vert.x handler.
    */
-  static <T> BiConsumer<T, Throwable> resultHandler(Handler<AsyncResult<T>> handler) {
+  static <T> BiConsumer<T, Throwable> resultHandler(Handler<AsyncResult<T>> handler, Context context) {
     return (result, error) -> {
       if (error == null) {
-        Future.succeededFuture(result).setHandler(handler);
+        context.runOnContext(v -> Future.succeededFuture(result).setHandler(handler));
       } else {
-        Future.<T>failedFuture(error).setHandler(handler);
+        context.runOnContext(v -> Future.<T>failedFuture(error).setHandler(handler));
       }
     };
   }
@@ -61,12 +62,12 @@ final class VertxFutures {
   /**
    * Converts a return value.
    */
-  static <T, U> BiConsumer<T, Throwable> convertHandler(Handler<AsyncResult<U>> handler, Function<T, U> converter) {
+  static <T, U> BiConsumer<T, Throwable> convertHandler(Handler<AsyncResult<U>> handler, Function<T, U> converter, Context context) {
     return (result, error) -> {
       if (error == null) {
-        Future.succeededFuture(converter.apply(result)).setHandler(handler);
+        context.runOnContext(v -> Future.succeededFuture(converter.apply(result)).setHandler(handler));
       } else {
-        Future.<U>failedFuture(error).setHandler(handler);
+        context.runOnContext(v -> Future.<U>failedFuture(error).setHandler(handler));
       }
     };
   }

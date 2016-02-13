@@ -17,6 +17,7 @@ package io.atomix.vertx;
 
 import io.atomix.catalyst.util.Assert;
 import io.atomix.coordination.DistributedLock;
+import io.vertx.core.Vertx;
 import io.vertx.core.shareddata.Lock;
 
 import java.util.concurrent.ExecutionException;
@@ -29,7 +30,7 @@ import java.util.concurrent.ExecutionException;
 public class AtomixLock implements Lock {
   private final DistributedLock lock;
 
-  public AtomixLock(DistributedLock lock) {
+  public AtomixLock(Vertx vertx, DistributedLock lock) {
     this.lock = Assert.notNull(lock, "lock");
   }
 
