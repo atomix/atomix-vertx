@@ -16,7 +16,13 @@ Add the Maven dependency to your `pom.xml`:
 
 ### Usage
 
-To use the `AtomixClusterManager`, construct an `Atomix` instance via either `AtomixClient` or `AtomixReplica`.
+To use the Atomix cluster manager, simply add the Atomix jar to your classpath. By default, when the Atomix
+cluster manager is loaded it will load the Atomix configuration from an `atomix.properties` file on the
+classpath. An example configuration file can be found at
+[src/main/examples/atomix.properties](http://github.com/atomix/atomix-vertx/tree/master/src/main/examples/atomix.properties).
+When used via this method, all nodes are `AtomixReplica` instances and are thus stateful.
+
+To use the `AtomixClusterManager` programmatically, construct an `Atomix` instance via either `AtomixClient` or `AtomixReplica`.
 
 The `AtomixReplica` is a stateful node that stores the state of data structures. When constructing a replica,
 the replica must be assigned a local `Address` to which to bind its server and a list of one or more
