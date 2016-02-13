@@ -17,7 +17,6 @@ package io.atomix.vertx;
 
 import io.atomix.catalyst.util.Assert;
 import io.atomix.collections.DistributedMap;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.Map;
@@ -112,19 +111,16 @@ public class AtomixMap<K, V> implements Map<K, V> {
     map.clear().join();
   }
 
-  @NotNull
   @Override
   public Set<K> keySet() {
     throw new UnsupportedOperationException("keySet() not supported");
   }
 
-  @NotNull
   @Override
   public Collection<V> values() {
     throw new UnsupportedOperationException("values() not supported");
   }
 
-  @NotNull
   @Override
   public Set<Entry<K, V>> entrySet() {
     throw new UnsupportedOperationException("entrySet() not supported");

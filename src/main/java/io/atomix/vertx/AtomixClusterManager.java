@@ -20,9 +20,10 @@ import io.atomix.atomic.DistributedAtomicLong;
 import io.atomix.catalyst.util.Assert;
 import io.atomix.collections.DistributedMap;
 import io.atomix.collections.DistributedMultiMap;
+import io.atomix.coordination.DistributedGroup;
 import io.atomix.coordination.DistributedLock;
-import io.atomix.coordination.DistributedMembershipGroup;
 import io.atomix.coordination.GroupMember;
+import io.atomix.coordination.LocalGroupMember;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -46,9 +47,9 @@ import java.util.concurrent.ExecutionException;
  */
 public class AtomixClusterManager implements ClusterManager {
   private final Atomix atomix;
-  private DistributedMembershipGroup group;
+  private DistributedGroup group;
   private NodeListener listener;
-  private boolean active;
+  private volatile LocalGroupMember member;
 
   public AtomixClusterManager(Atomix atomix) {
     this.atomix = Assert.notNull(atomix, "atomix");
@@ -83,7 +84,7 @@ public class AtomixClusterManager implements ClusterManager {
   public void getLockWithTimeout(String name, long l, Handler<AsyncResult<Lock>> handler) {
     atomix.get(name, DistributedLock.class).whenComplete((lock, error) -> {
       if (error == null) {
-        lock.lock().whenComplete(VertxFutures.<Void, Lock>convertHandler(handler, v -> new AtomixLock(lock)));
+        lock.lock().whenComplete(VertxFutures.<Long, Lock>convertHandler(handler, v -> new AtomixLock(lock)));
       } else {
         Future.<Lock>failedFuture(error).setHandler(handler);
       }
@@ -97,7 +98,7 @@ public class AtomixClusterManager implements ClusterManager {
 
   @Override
   public String getNodeID() {
-    return "" + group.member().id();
+    return member.id();
   }
 
   @Override
@@ -118,12 +119,12 @@ public class AtomixClusterManager implements ClusterManager {
   public void join(Handler<AsyncResult<Void>> handler) {
     atomix.open().whenComplete((openResult, openError) -> {
       if (openError == null) {
-        atomix.get("__vertx", DistributedMembershipGroup.class).whenComplete((groupResult, groupError) -> {
+        atomix.get("__vertx", DistributedGroup.class).whenComplete((groupResult, groupError) -> {
           if (groupError == null) {
             this.group = groupResult;
-            group.join().whenComplete((joinResult, joinError) -> {
+            group.join().whenComplete((member, joinError) -> {
               if (joinError == null) {
-                active = true;
+                this.member = member;
                 group.onJoin(this::handleJoin);
                 group.onLeave(this::handleLeave);
                 Future.<Void>succeededFuture().setHandler(handler);
@@ -161,11 +162,11 @@ public class AtomixClusterManager implements ClusterManager {
 
   @Override
   public void leave(Handler<AsyncResult<Void>> handler) {
-    if (group != null) {
-      active = false;
-      group.leave().whenComplete((leaveResult, leaveError) -> {
+    if (member != null) {
+      member.leave().whenComplete((leaveResult, leaveError) -> {
         if (leaveError == null) {
           group = null;
+          member = null;
           atomix.close().whenComplete(VertxFutures.voidHandler(handler));
         } else {
           Future.<Void>failedFuture(leaveError).setHandler(handler);
@@ -176,7 +177,7 @@ public class AtomixClusterManager implements ClusterManager {
 
   @Override
   public boolean isActive() {
-    return active;
+    return member != null;
   }
 
 }
