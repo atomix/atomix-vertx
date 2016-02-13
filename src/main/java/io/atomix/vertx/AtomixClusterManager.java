@@ -31,6 +31,8 @@ import io.vertx.core.spi.cluster.AsyncMultiMap;
 import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.core.spi.cluster.NodeListener;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,11 +45,33 @@ import java.util.concurrent.ExecutionException;
  * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
  */
 public class AtomixClusterManager implements ClusterManager {
+  private static final String DEFAULT_PROPERTIES_FILE = "atomix.properties";
   private final Atomix atomix;
   private DistributedGroup group;
   private NodeListener listener;
   private volatile LocalGroupMember member;
   private Vertx vertx;
+
+  /**
+   * Loads properties from a properties file.
+   */
+  private static Properties loadProperties(String propertiesFile) {
+    Properties properties = new Properties();
+    try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(propertiesFile)) {
+      properties.load(is);
+    } catch (IOException e) {
+      throw new RuntimeException("failed to load default transport properties", e);
+    }
+    return properties;
+  }
+
+  public AtomixClusterManager() {
+    this(DEFAULT_PROPERTIES_FILE);
+  }
+
+  public AtomixClusterManager(String propertiesFile) {
+    this(loadProperties(propertiesFile));
+  }
 
   public AtomixClusterManager(Properties properties) {
     this(new AtomixReplica(properties));
