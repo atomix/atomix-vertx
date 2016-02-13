@@ -16,6 +16,7 @@
 package io.atomix.vertx;
 
 import io.atomix.Atomix;
+import io.atomix.AtomixReplica;
 import io.atomix.atomic.DistributedAtomicLong;
 import io.atomix.catalyst.util.Assert;
 import io.atomix.collections.DistributedMap;
@@ -38,6 +39,7 @@ import io.vertx.core.spi.cluster.NodeListener;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -50,6 +52,10 @@ public class AtomixClusterManager implements ClusterManager {
   private DistributedGroup group;
   private NodeListener listener;
   private volatile LocalGroupMember member;
+
+  public AtomixClusterManager(Properties properties) {
+    this(new AtomixReplica(properties));
+  }
 
   public AtomixClusterManager(Atomix atomix) {
     this.atomix = Assert.notNull(atomix, "atomix");
