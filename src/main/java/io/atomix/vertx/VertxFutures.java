@@ -15,6 +15,7 @@
  */
 package io.atomix.vertx;
 
+import io.atomix.catalyst.util.Assert;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
@@ -37,6 +38,8 @@ final class VertxFutures {
    * Wraps a void Vert.x handler.
    */
   static <T> BiConsumer<T, Throwable> voidHandler(Handler<AsyncResult<Void>> handler, Context context) {
+    Assert.notNull(handler, "handler");
+    Assert.notNull(context, "context");
     return (result, error) -> {
       if (error == null) {
         context.runOnContext(v -> Future.<Void>succeededFuture().setHandler(handler));
@@ -50,6 +53,8 @@ final class VertxFutures {
    * Wraps a Vert.x handler.
    */
   static <T> BiConsumer<T, Throwable> resultHandler(Handler<AsyncResult<T>> handler, Context context) {
+    Assert.notNull(handler, "handler");
+    Assert.notNull(context, "context");
     return (result, error) -> {
       if (error == null) {
         context.runOnContext(v -> Future.succeededFuture(result).setHandler(handler));

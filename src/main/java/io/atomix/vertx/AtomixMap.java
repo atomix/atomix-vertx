@@ -114,17 +114,29 @@ public class AtomixMap<K, V> implements Map<K, V> {
 
   @Override
   public Set<K> keySet() {
-    throw new UnsupportedOperationException("keySet() not supported");
+    try {
+      return map.keySet().get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
   public Collection<V> values() {
-    throw new UnsupportedOperationException("values() not supported");
+    try {
+      return map.values().get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
   public Set<Entry<K, V>> entrySet() {
-    throw new UnsupportedOperationException("entrySet() not supported");
+    try {
+      return map.entrySet().get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
+    }
   }
 
 }
