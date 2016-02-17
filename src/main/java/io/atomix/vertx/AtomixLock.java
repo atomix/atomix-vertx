@@ -38,8 +38,14 @@ public class AtomixLock implements Lock {
   public void release() {
     try {
       lock.unlock().get();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException e) {
       throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      } else {
+        throw new RuntimeException(e.getCause());
+      }
     }
   }
 

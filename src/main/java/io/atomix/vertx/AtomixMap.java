@@ -40,8 +40,14 @@ public class AtomixMap<K, V> implements Map<K, V> {
   public int size() {
     try {
       return map.size().get();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException e) {
       throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      } else {
+        throw new RuntimeException(e.getCause());
+      }
     }
   }
 
@@ -49,8 +55,14 @@ public class AtomixMap<K, V> implements Map<K, V> {
   public boolean isEmpty() {
     try {
       return map.isEmpty().get();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException e) {
       throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      } else {
+        throw new RuntimeException(e.getCause());
+      }
     }
   }
 
@@ -58,8 +70,14 @@ public class AtomixMap<K, V> implements Map<K, V> {
   public boolean containsKey(Object key) {
     try {
       return map.containsKey(key).get();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException e) {
       throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      } else {
+        throw new RuntimeException(e.getCause());
+      }
     }
   }
 
@@ -67,8 +85,14 @@ public class AtomixMap<K, V> implements Map<K, V> {
   public boolean containsValue(Object value) {
     try {
       return map.containsValue(value).get();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException e) {
       throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      } else {
+        throw new RuntimeException(e.getCause());
+      }
     }
   }
 
@@ -76,8 +100,14 @@ public class AtomixMap<K, V> implements Map<K, V> {
   public V get(Object key) {
     try {
       return map.get(key).get();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException e) {
       throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      } else {
+        throw new RuntimeException(e.getCause());
+      }
     }
   }
 
@@ -85,8 +115,14 @@ public class AtomixMap<K, V> implements Map<K, V> {
   public V put(K key, V value) {
     try {
       return map.put(key, value).get();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException e) {
       throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      } else {
+        throw new RuntimeException(e.getCause());
+      }
     }
   }
 
@@ -95,8 +131,14 @@ public class AtomixMap<K, V> implements Map<K, V> {
   public V remove(Object key) {
     try {
       return map.remove((K) key).get();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException e) {
       throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      } else {
+        throw new RuntimeException(e.getCause());
+      }
     }
   }
 
@@ -116,8 +158,14 @@ public class AtomixMap<K, V> implements Map<K, V> {
   public Set<K> keySet() {
     try {
       return map.keySet().get();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException e) {
       throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      } else {
+        throw new RuntimeException(e.getCause());
+      }
     }
   }
 
@@ -125,8 +173,14 @@ public class AtomixMap<K, V> implements Map<K, V> {
   public Collection<V> values() {
     try {
       return map.values().get();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException e) {
       throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      } else {
+        throw new RuntimeException(e.getCause());
+      }
     }
   }
 
@@ -134,8 +188,14 @@ public class AtomixMap<K, V> implements Map<K, V> {
   public Set<Entry<K, V>> entrySet() {
     try {
       return map.entrySet().get();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException e) {
       throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      } else {
+        throw new RuntimeException(e.getCause());
+      }
     }
   }
 
