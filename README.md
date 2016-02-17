@@ -1,5 +1,7 @@
 # Atomix Vert.x Cluster Manager
 
+[![Build Status](https://travis-ci.org/atomix/atomix-vertx.svg)](https://travis-ci.org/atomix/atomix-vertx)
+
 This project provides a cluster manager for [Vert.x](http://vertx.io) built on the [Atomix](http://atomix.io) distributed coordination framework.
 
 ### Installation
