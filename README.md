@@ -8,11 +8,11 @@ This project provides a cluster manager for [Vert.x](http://vertx.io) built on t
 
 Add the Maven dependency to your `pom.xml`:
 
-```
+```xml
 <dependency>
   <groupId>io.atomix.vertx</groupId>
   <artifactId>atomix-vertx</artifactId>
-  <version>0.1.0-SNAPSHOT
+  <version>1.0.0-SNAPSHOT</version>
 </dependency>
 ```
 
