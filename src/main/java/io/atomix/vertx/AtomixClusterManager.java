@@ -52,7 +52,7 @@ public class AtomixClusterManager implements ClusterManager {
   private static final String DEFAULT_PROPERTIES_FILE = "atomix.properties";
   private final Atomix atomix;
   private final ThreadContext context;
-  private DistributedGroup group;
+  private volatile DistributedGroup group;
   private NodeListener listener;
   private volatile LocalGroupMember member;
   private volatile boolean active;
@@ -169,7 +169,7 @@ public class AtomixClusterManager implements ClusterManager {
   }
 
   @Override
-  public void join(Handler<AsyncResult<Void>> handler) {
+  public synchronized void join(Handler<AsyncResult<Void>> handler) {
     Context context = vertx.getOrCreateContext();
     active = true;
     atomix.open().whenComplete((openResult, openError) -> {
@@ -203,8 +203,10 @@ public class AtomixClusterManager implements ClusterManager {
   private void handleJoin(GroupMember member) {
     if (listener != null) {
       context.executor().execute(() -> {
-        if (active) {
-          listener.nodeAdded(member.id());
+        synchronized (this) {
+          if (active) {
+            listener.nodeAdded(member.id());
+          }
         }
       });
     }
@@ -216,15 +218,17 @@ public class AtomixClusterManager implements ClusterManager {
   private void handleLeave(GroupMember member) {
     if (listener != null) {
       context.executor().execute(() -> {
-        if (active) {
-          listener.nodeLeft(member.id());
+        synchronized (this) {
+          if (active) {
+            listener.nodeLeft(member.id());
+          }
         }
       });
     }
   }
 
   @Override
-  public void leave(Handler<AsyncResult<Void>> handler) {
+  public synchronized void leave(Handler<AsyncResult<Void>> handler) {
     Context context = vertx.getOrCreateContext();
     if (member != null) {
       active = false;

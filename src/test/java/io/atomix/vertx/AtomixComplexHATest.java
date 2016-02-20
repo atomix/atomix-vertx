@@ -28,6 +28,11 @@ import org.junit.Test;
 public class AtomixComplexHATest extends ComplexHATest {
   private final AtomixVertxTestHelper helper = new AtomixVertxTestHelper();
 
+  public void setUp() throws Exception {
+    helper.setUp();
+    super.setUp();
+  }
+
   @Override
   protected ClusterManager getClusterManager() {
     return helper.createClusterManager();
@@ -37,6 +42,11 @@ public class AtomixComplexHATest extends ComplexHATest {
   @Repeat(times=1)
   public void testComplexFailover() {
     super.testComplexFailover();
+  }
+
+  public void tearDown() throws Exception {
+    super.tearDown();
+    helper.tearDown();
   }
 
 }

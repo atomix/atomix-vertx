@@ -26,9 +26,19 @@ import io.vertx.test.core.ClusteredSharedCounterTest;
 public class AtomixClusteredSharedCounterTest extends ClusteredSharedCounterTest {
   private final AtomixVertxTestHelper helper = new AtomixVertxTestHelper();
 
+  public void setUp() throws Exception {
+    helper.setUp();
+    super.setUp();
+  }
+
   @Override
   protected ClusterManager getClusterManager() {
     return helper.createClusterManager();
+  }
+
+  public void tearDown() throws Exception {
+    super.tearDown();
+    helper.tearDown();
   }
 
 }
