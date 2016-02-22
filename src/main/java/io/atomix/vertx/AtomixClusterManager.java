@@ -42,6 +42,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Vert.x Atomix cluster manager.
@@ -116,8 +118,8 @@ public class AtomixClusterManager implements ClusterManager {
   @Override
   public <K, V> Map<K, V> getSyncMap(String name) {
     try {
-      return new AtomixMap<>(vertx, atomix.<K, V>getMap(name).get());
-    } catch (InterruptedException | ExecutionException e) {
+      return new AtomixMap<>(vertx, atomix.<K, V>getMap(name).get(10, TimeUnit.SECONDS));
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new RuntimeException(e);
     }
   }
@@ -174,7 +176,7 @@ public class AtomixClusterManager implements ClusterManager {
     active = true;
     atomix.open().whenComplete((openResult, openError) -> {
       if (openError == null) {
-        atomix.getGroup("__atomix__").whenComplete((group, groupError) -> {
+        atomix.getGroup("__atomixVertx").whenComplete((group, groupError) -> {
           if (groupError == null) {
             this.group = group;
             group.join().whenComplete((member, joinError) -> {
@@ -230,7 +232,7 @@ public class AtomixClusterManager implements ClusterManager {
   @Override
   public synchronized void leave(Handler<AsyncResult<Void>> handler) {
     Context context = vertx.getOrCreateContext();
-    if (member != null) {
+    if (active) {
       active = false;
       member.leave().whenComplete((leaveResult, leaveError) -> {
         if (leaveError == null) {

@@ -21,6 +21,8 @@ import io.vertx.core.Vertx;
 import io.vertx.core.shareddata.Lock;
 
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Atomix distributed lock.
@@ -37,8 +39,8 @@ public class AtomixLock implements Lock {
   @Override
   public void release() {
     try {
-      lock.unlock().get();
-    } catch (InterruptedException e) {
+      lock.unlock().get(10, TimeUnit.SECONDS);
+    } catch (InterruptedException | TimeoutException e) {
       throw new RuntimeException(e);
     } catch (ExecutionException e) {
       if (e.getCause() instanceof RuntimeException) {

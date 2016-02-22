@@ -61,7 +61,7 @@ final class AtomixVertxTestHelper {
       replicas.add(replica);
       futures[i] = replica.open();
     }
-    CompletableFuture.allOf(futures).get(2, TimeUnit.MINUTES);
+    CompletableFuture.allOf(futures).get(30, TimeUnit.SECONDS);
   }
 
   /**
@@ -84,7 +84,7 @@ final class AtomixVertxTestHelper {
     }
 
     try {
-      CompletableFuture.allOf(futures).get(2, TimeUnit.MINUTES);
+      CompletableFuture.allOf(futures).get(30, TimeUnit.SECONDS);
     } catch (Exception e) {
     }
   }

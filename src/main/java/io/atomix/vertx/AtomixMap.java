@@ -23,6 +23,8 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Atomix synchronous map.
@@ -39,8 +41,8 @@ public class AtomixMap<K, V> implements Map<K, V> {
   @Override
   public int size() {
     try {
-      return map.size().get();
-    } catch (InterruptedException e) {
+      return map.size().get(10, TimeUnit.SECONDS);
+    } catch (InterruptedException | TimeoutException e) {
       throw new RuntimeException(e);
     } catch (ExecutionException e) {
       if (e.getCause() instanceof RuntimeException) {
@@ -54,8 +56,8 @@ public class AtomixMap<K, V> implements Map<K, V> {
   @Override
   public boolean isEmpty() {
     try {
-      return map.isEmpty().get();
-    } catch (InterruptedException e) {
+      return map.isEmpty().get(10, TimeUnit.SECONDS);
+    } catch (InterruptedException | TimeoutException e) {
       throw new RuntimeException(e);
     } catch (ExecutionException e) {
       if (e.getCause() instanceof RuntimeException) {
@@ -69,8 +71,8 @@ public class AtomixMap<K, V> implements Map<K, V> {
   @Override
   public boolean containsKey(Object key) {
     try {
-      return map.containsKey(key).get();
-    } catch (InterruptedException e) {
+      return map.containsKey(key).get(10, TimeUnit.SECONDS);
+    } catch (InterruptedException | TimeoutException e) {
       throw new RuntimeException(e);
     } catch (ExecutionException e) {
       if (e.getCause() instanceof RuntimeException) {
@@ -84,8 +86,8 @@ public class AtomixMap<K, V> implements Map<K, V> {
   @Override
   public boolean containsValue(Object value) {
     try {
-      return map.containsValue(value).get();
-    } catch (InterruptedException e) {
+      return map.containsValue(value).get(10, TimeUnit.SECONDS);
+    } catch (InterruptedException | TimeoutException e) {
       throw new RuntimeException(e);
     } catch (ExecutionException e) {
       if (e.getCause() instanceof RuntimeException) {
@@ -99,8 +101,8 @@ public class AtomixMap<K, V> implements Map<K, V> {
   @Override
   public V get(Object key) {
     try {
-      return map.get(key).get();
-    } catch (InterruptedException e) {
+      return map.get(key).get(10, TimeUnit.SECONDS);
+    } catch (InterruptedException | TimeoutException e) {
       throw new RuntimeException(e);
     } catch (ExecutionException e) {
       if (e.getCause() instanceof RuntimeException) {
@@ -114,8 +116,8 @@ public class AtomixMap<K, V> implements Map<K, V> {
   @Override
   public V put(K key, V value) {
     try {
-      return map.put(key, value).get();
-    } catch (InterruptedException e) {
+      return map.put(key, value).get(10, TimeUnit.SECONDS);
+    } catch (InterruptedException | TimeoutException e) {
       throw new RuntimeException(e);
     } catch (ExecutionException e) {
       if (e.getCause() instanceof RuntimeException) {
@@ -130,8 +132,8 @@ public class AtomixMap<K, V> implements Map<K, V> {
   @SuppressWarnings("unchecked")
   public V remove(Object key) {
     try {
-      return map.remove((K) key).get();
-    } catch (InterruptedException e) {
+      return map.remove((K) key).get(10, TimeUnit.SECONDS);
+    } catch (InterruptedException | TimeoutException e) {
       throw new RuntimeException(e);
     } catch (ExecutionException e) {
       if (e.getCause() instanceof RuntimeException) {
@@ -145,20 +147,40 @@ public class AtomixMap<K, V> implements Map<K, V> {
   @Override
   public void putAll(Map<? extends K, ? extends V> m) {
     for (Map.Entry<? extends K, ? extends V> entry : m.entrySet()) {
-      map.put(entry.getKey(), entry.getValue()).join();
+      try {
+        map.put(entry.getKey(), entry.getValue()).get(10, TimeUnit.SECONDS);
+      } catch (InterruptedException | TimeoutException e) {
+        throw new RuntimeException(e);
+      } catch (ExecutionException e) {
+        if (e.getCause() instanceof RuntimeException) {
+          throw (RuntimeException) e.getCause();
+        } else {
+          throw new RuntimeException(e.getCause());
+        }
+      }
     }
   }
 
   @Override
   public void clear() {
-    map.clear().join();
+    try {
+      map.clear().get(10, TimeUnit.SECONDS);
+    } catch (InterruptedException | TimeoutException e) {
+      throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      } else {
+        throw new RuntimeException(e.getCause());
+      }
+    }
   }
 
   @Override
   public Set<K> keySet() {
     try {
-      return map.keySet().get();
-    } catch (InterruptedException e) {
+      return map.keySet().get(10, TimeUnit.SECONDS);
+    } catch (InterruptedException | TimeoutException e) {
       throw new RuntimeException(e);
     } catch (ExecutionException e) {
       if (e.getCause() instanceof RuntimeException) {
@@ -172,8 +194,8 @@ public class AtomixMap<K, V> implements Map<K, V> {
   @Override
   public Collection<V> values() {
     try {
-      return map.values().get();
-    } catch (InterruptedException e) {
+      return map.values().get(10, TimeUnit.SECONDS);
+    } catch (InterruptedException | TimeoutException e) {
       throw new RuntimeException(e);
     } catch (ExecutionException e) {
       if (e.getCause() instanceof RuntimeException) {
@@ -187,8 +209,8 @@ public class AtomixMap<K, V> implements Map<K, V> {
   @Override
   public Set<Entry<K, V>> entrySet() {
     try {
-      return map.entrySet().get();
-    } catch (InterruptedException e) {
+      return map.entrySet().get(10, TimeUnit.SECONDS);
+    } catch (InterruptedException | TimeoutException e) {
       throw new RuntimeException(e);
     } catch (ExecutionException e) {
       if (e.getCause() instanceof RuntimeException) {
