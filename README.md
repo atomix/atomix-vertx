@@ -89,7 +89,7 @@ replica1.serializer().registerDefault(ClusterSerializable.class, ClusterSerializ
 AtomixReplica replica2 = AtomixReplica.builder(new Address("123.456.789.1", 8700))
   .withTransport(new NettyTransport())
   .withStorage(Storage.builder()
-    .withDirectory(new File("logs/replica1"))
+    .withDirectory(new File("logs/replica2"))
     .withStorageLevel(StorageLevel.MAPPED)
     .build())
   .build();
@@ -100,7 +100,7 @@ replica2.serializer().registerDefault(ClusterSerializable.class, ClusterSerializ
 AtomixReplica replica3 = AtomixReplica.builder(new Address("123.456.789.2", 8700))
   .withTransport(new NettyTransport())
   .withStorage(Storage.builder()
-    .withDirectory(new File("logs/replica1"))
+    .withDirectory(new File("logs/replica3"))
     .withStorageLevel(StorageLevel.MAPPED)
     .build())
   .build();
