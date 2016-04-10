@@ -15,7 +15,6 @@
  */
 package io.atomix.vertx;
 
-import io.atomix.Atomix;
 import io.atomix.AtomixClient;
 import io.atomix.AtomixReplica;
 import io.atomix.catalyst.transport.Address;
@@ -30,7 +29,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Vert.x test helper.
@@ -39,7 +40,7 @@ import java.util.concurrent.TimeUnit;
  */
 final class AtomixVertxTestHelper {
   private final LocalServerRegistry registry = new LocalServerRegistry();
-  private final List<Atomix> replicas = new ArrayList<>();
+  private final List<AtomixReplica> replicas = new ArrayList<>();
   private final List<Address> members = Arrays.asList(
     new Address("localhost", 5000),
     new Address("localhost", 5001),
@@ -49,7 +50,7 @@ final class AtomixVertxTestHelper {
   public void setUp() throws Exception {
     CompletableFuture[] futures = new CompletableFuture[members.size()];
     for (int i = 0; i < members.size(); i++) {
-      Atomix replica = AtomixReplica.builder(members.get(i), members)
+      AtomixReplica replica = AtomixReplica.builder(members.get(i))
         .withTransport(new LocalTransport(registry))
         .withStorage(new Storage(StorageLevel.MEMORY))
         .withElectionTimeout(Duration.ofMillis(500))
@@ -57,9 +58,8 @@ final class AtomixVertxTestHelper {
         .withSessionTimeout(Duration.ofSeconds(10))
         .build();
       replica.serializer().registerDefault(ClusterSerializable.class, ClusterSerializableSerializer.class);
-      replica.serializer().disableWhitelist();
       replicas.add(replica);
-      futures[i] = replica.open();
+      futures[i] = replica.bootstrap(members);
     }
     CompletableFuture.allOf(futures).get(30, TimeUnit.SECONDS);
   }
@@ -70,17 +70,21 @@ final class AtomixVertxTestHelper {
    * @return The next Atomix cluster manager.
    */
   AtomixClusterManager createClusterManager() {
-    Atomix client = AtomixClient.builder(members)
+    AtomixClient client = AtomixClient.builder()
       .withTransport(new LocalTransport(registry))
       .build();
-    client.serializer().disableWhitelist();
+    try {
+      client.connect(members).get(30, TimeUnit.SECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      throw new RuntimeException(e);
+    }
     return new AtomixClusterManager(client);
   }
 
   public void tearDown() {
     CompletableFuture[] futures = new CompletableFuture[replicas.size()];
     for (int i = 0; i < replicas.size(); i++) {
-      futures[i] = replicas.get(i).close();
+      futures[i] = replicas.get(i).leave();
     }
 
     try {

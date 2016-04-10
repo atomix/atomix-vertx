@@ -16,7 +16,6 @@
 package io.atomix.vertx;
 
 import io.atomix.Atomix;
-import io.atomix.AtomixReplica;
 import io.atomix.catalyst.util.Assert;
 import io.atomix.catalyst.util.concurrent.SingleThreadContext;
 import io.atomix.catalyst.util.concurrent.ThreadContext;
@@ -24,7 +23,7 @@ import io.atomix.collections.DistributedMap;
 import io.atomix.collections.DistributedMultiMap;
 import io.atomix.group.DistributedGroup;
 import io.atomix.group.GroupMember;
-import io.atomix.group.LocalGroupMember;
+import io.atomix.group.LocalMember;
 import io.vertx.core.*;
 import io.vertx.core.shareddata.AsyncMap;
 import io.vertx.core.shareddata.Counter;
@@ -34,13 +33,10 @@ import io.vertx.core.spi.cluster.AsyncMultiMap;
 import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.core.spi.cluster.NodeListener;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -51,39 +47,13 @@ import java.util.concurrent.TimeoutException;
  * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
  */
 public class AtomixClusterManager implements ClusterManager {
-  private static final String DEFAULT_PROPERTIES_FILE = "atomix.properties";
   private final Atomix atomix;
   private final ThreadContext context;
   private volatile DistributedGroup group;
   private NodeListener listener;
-  private volatile LocalGroupMember member;
+  private volatile LocalMember member;
   private volatile boolean active;
   private Vertx vertx;
-
-  /**
-   * Loads properties from a properties file.
-   */
-  private static Properties loadProperties(String propertiesFile) {
-    Properties properties = new Properties();
-    try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(propertiesFile)) {
-      properties.load(is);
-    } catch (IOException e) {
-      throw new RuntimeException("failed to load default transport properties", e);
-    }
-    return properties;
-  }
-
-  public AtomixClusterManager() {
-    this(DEFAULT_PROPERTIES_FILE);
-  }
-
-  public AtomixClusterManager(String propertiesFile) {
-    this(loadProperties(propertiesFile));
-  }
-
-  public AtomixClusterManager(Properties properties) {
-    this(new AtomixReplica(properties));
-  }
 
   public AtomixClusterManager(Atomix atomix) {
     this.atomix = Assert.notNull(atomix, "atomix");
@@ -174,27 +144,21 @@ public class AtomixClusterManager implements ClusterManager {
   public synchronized void join(Handler<AsyncResult<Void>> handler) {
     Context context = vertx.getOrCreateContext();
     active = true;
-    atomix.open().whenComplete((openResult, openError) -> {
-      if (openError == null) {
-        atomix.getGroup("__atomixVertx").whenComplete((group, groupError) -> {
-          if (groupError == null) {
-            this.group = group;
-            group.join().whenComplete((member, joinError) -> {
-              if (joinError == null) {
-                this.member = member;
-                group.onJoin(this::handleJoin);
-                group.onLeave(this::handleLeave);
-                context.runOnContext(v -> Future.<Void>succeededFuture().setHandler(handler));
-              } else {
-                context.runOnContext(v -> Future.<Void>failedFuture(joinError).setHandler(handler));
-              }
-            });
+    atomix.getGroup("__atomixVertx").whenComplete((group, groupError) -> {
+      if (groupError == null) {
+        this.group = group;
+        group.join().whenComplete((member, joinError) -> {
+          if (joinError == null) {
+            this.member = member;
+            group.onJoin(this::handleJoin);
+            group.onLeave(this::handleLeave);
+            context.runOnContext(v -> Future.<Void>succeededFuture().setHandler(handler));
           } else {
-            context.runOnContext(v -> Future.<Void>failedFuture(groupError).setHandler(handler));
+            context.runOnContext(v -> Future.<Void>failedFuture(joinError).setHandler(handler));
           }
         });
       } else {
-        context.runOnContext(v -> Future.<Void>failedFuture(openError).setHandler(handler));
+        context.runOnContext(v -> Future.<Void>failedFuture(groupError).setHandler(handler));
       }
     });
   }
@@ -238,7 +202,7 @@ public class AtomixClusterManager implements ClusterManager {
         if (leaveError == null) {
           group = null;
           member = null;
-          atomix.close().whenComplete(VertxFutures.voidHandler(handler, context));
+          context.runOnContext(v -> Future.<Void>succeededFuture().setHandler(handler));
         } else {
           context.runOnContext(v -> Future.<Void>failedFuture(leaveError).setHandler(handler));
         }
