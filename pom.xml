@@ -10,7 +10,7 @@
 
   <groupId>io.atomix.vertx</groupId>
   <artifactId>atomix-vertx</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
+  <version>1.0.8-SNAPSHOT</version>
   <packaging>jar</packaging>
   <name>Atomix Vert.x Cluster Manager</name>
   <description>Consistent, fault-tolerant cluster manager for Vert.x.</description>

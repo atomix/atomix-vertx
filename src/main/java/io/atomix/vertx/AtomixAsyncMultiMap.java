@@ -68,6 +68,12 @@ public class AtomixAsyncMultiMap<K, V> implements AsyncMultiMap<K, V> {
     map.removeValue(v).whenComplete(VertxFutures.voidHandler(handler, vertx.getOrCreateContext()));
   }
 
+    /**
+     * Realy stupid implementation. Based on additional set containing keys.
+     * May not work.
+     * @param p
+     * @param handler
+     */
   @Override
   public void removeAllMatching(Predicate<V> p, Handler<AsyncResult<Void>> handler) {
       final Set<V> toRemove = new HashSet<>();
