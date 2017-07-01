@@ -17,11 +17,17 @@ package io.atomix.vertx;
 
 import io.atomix.catalyst.util.Assert;
 import io.atomix.collections.DistributedMultiMap;
+import io.atomix.collections.DistributedSet;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.spi.cluster.AsyncMultiMap;
 import io.vertx.core.spi.cluster.ChoosableIterable;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 
 /**
  * Atomix async multi map.
@@ -31,15 +37,20 @@ import io.vertx.core.spi.cluster.ChoosableIterable;
 public class AtomixAsyncMultiMap<K, V> implements AsyncMultiMap<K, V> {
   private final Vertx vertx;
   private final DistributedMultiMap<K, V> map;
+  private final DistributedSet<K> keys;
 
-  public AtomixAsyncMultiMap(Vertx vertx, DistributedMultiMap<K, V> map) {
+  public AtomixAsyncMultiMap(Vertx vertx, DistributedMultiMap<K, V> map, DistributedSet<K> keys) {
     this.vertx = Assert.notNull(vertx, "vertx");
     this.map = Assert.notNull(map, "map");
+    this.keys = Assert.notNull(keys, "keys");
   }
 
   @Override
   public void add(K k, V v, Handler<AsyncResult<Void>> handler) {
-    map.put(k, v).whenComplete(VertxFutures.voidHandler(handler, vertx.getOrCreateContext()));
+      keys.add(k).whenComplete((aBoolean, throwable) ->
+              map.put(k, v).whenComplete(VertxFutures.voidHandler(handler, vertx.getOrCreateContext()))
+      );
+
   }
 
   @Override
@@ -55,6 +66,48 @@ public class AtomixAsyncMultiMap<K, V> implements AsyncMultiMap<K, V> {
   @Override
   public void removeAllForValue(V v, Handler<AsyncResult<Void>> handler) {
     map.removeValue(v).whenComplete(VertxFutures.voidHandler(handler, vertx.getOrCreateContext()));
+  }
+
+  @Override
+  public void removeAllMatching(Predicate<V> p, Handler<AsyncResult<Void>> handler) {
+      final Set<V> toRemove = new HashSet<>();
+
+      final AtomicInteger toCompleteCnt = new AtomicInteger(1);
+      keys.iterator().whenComplete((ki,t) -> {
+          toCompleteCnt.decrementAndGet();
+          ki.forEachRemaining((k) -> {
+                      toCompleteCnt.incrementAndGet();
+                      map.get(k).whenComplete((vl, t2) -> {
+                          toRemove.addAll(vl);
+                          toCompleteCnt.decrementAndGet();
+                          if(toCompleteCnt.get() == 0){
+                              toRemove.forEach(x ->{
+                                  if(p.test(x)){
+                                      toCompleteCnt.incrementAndGet();
+                                      map.removeValue(x).whenComplete((b,t3)->{
+                                          if(toCompleteCnt.decrementAndGet() == 0){
+                                              VertxFutures.voidHandler(handler, vertx.getOrCreateContext());
+                                          }
+                                      });
+                                  }
+                              });
+                              if(toCompleteCnt.get() == 0){
+                                  VertxFutures.voidHandler(handler, vertx.getOrCreateContext());
+                              }
+                          }
+                      });
+                  }
+          );
+          }
+
+      );
+      if(toCompleteCnt.get() == 0){
+          VertxFutures.voidHandler(handler, vertx.getOrCreateContext());
+      }
+
+    //TODO:proper implementation
+//    throw new RuntimeException("NOT IMPLEMENTED");
+
   }
 
 }

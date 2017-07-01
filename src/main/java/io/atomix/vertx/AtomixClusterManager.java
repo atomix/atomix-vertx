@@ -17,10 +17,11 @@ package io.atomix.vertx;
 
 import io.atomix.Atomix;
 import io.atomix.catalyst.util.Assert;
-import io.atomix.catalyst.util.concurrent.SingleThreadContext;
-import io.atomix.catalyst.util.concurrent.ThreadContext;
+import io.atomix.catalyst.concurrent.SingleThreadContext;
+import io.atomix.catalyst.concurrent.ThreadContext;
 import io.atomix.collections.DistributedMap;
 import io.atomix.collections.DistributedMultiMap;
+import io.atomix.collections.DistributedSet;
 import io.atomix.group.DistributedGroup;
 import io.atomix.group.GroupMember;
 import io.atomix.group.LocalMember;
@@ -77,7 +78,9 @@ public class AtomixClusterManager implements ClusterManager {
 
   @Override
   public <K, V> void getAsyncMultiMap(String name, Handler<AsyncResult<AsyncMultiMap<K, V>>> handler) {
-    atomix.<K, V>getMultiMap(name).whenComplete(VertxFutures.<DistributedMultiMap<K, V>, AsyncMultiMap<K, V>>convertHandler(handler, map -> new AtomixAsyncMultiMap<K, V>(vertx, map), vertx.getOrCreateContext()));
+    atomix.<K>getSet("##keys##"+name).thenCompose( ds ->
+        atomix.<K, V>getMultiMap(name).whenComplete(VertxFutures.<DistributedMultiMap<K, V>, AsyncMultiMap<K, V>>convertHandler(handler, map -> new AtomixAsyncMultiMap<K, V>(vertx, map, ds), vertx.getOrCreateContext()))
+    );
   }
 
   @Override
