@@ -17,11 +17,17 @@ package io.atomix.vertx;
 
 import io.atomix.catalyst.util.Assert;
 import io.atomix.collections.DistributedMultiMap;
+import io.atomix.collections.DistributedSet;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.spi.cluster.AsyncMultiMap;
 import io.vertx.core.spi.cluster.ChoosableIterable;
+
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 
 /**
  * Atomix async multi map.
@@ -31,15 +37,20 @@ import io.vertx.core.spi.cluster.ChoosableIterable;
 public class AtomixAsyncMultiMap<K, V> implements AsyncMultiMap<K, V> {
   private final Vertx vertx;
   private final DistributedMultiMap<K, V> map;
+  private final DistributedSet<K> keys;
 
-  public AtomixAsyncMultiMap(Vertx vertx, DistributedMultiMap<K, V> map) {
+  public AtomixAsyncMultiMap(Vertx vertx, DistributedMultiMap<K, V> map, DistributedSet<K> keys) {
     this.vertx = Assert.notNull(vertx, "vertx");
     this.map = Assert.notNull(map, "map");
+    this.keys = Assert.notNull(keys, "keys");
   }
 
   @Override
   public void add(K k, V v, Handler<AsyncResult<Void>> handler) {
-    map.put(k, v).whenComplete(VertxFutures.voidHandler(handler, vertx.getOrCreateContext()));
+      keys.add(k)
+              .thenCompose( x -> map.put(k, v))
+              .whenComplete(VertxFutures.voidHandler(handler, vertx.getOrCreateContext()) );
+
   }
 
   @Override
@@ -55,6 +66,40 @@ public class AtomixAsyncMultiMap<K, V> implements AsyncMultiMap<K, V> {
   @Override
   public void removeAllForValue(V v, Handler<AsyncResult<Void>> handler) {
     map.removeValue(v).whenComplete(VertxFutures.voidHandler(handler, vertx.getOrCreateContext()));
+  }
+
+    /**
+     * Realy stupid implementation. Based on additional set containing keys.
+     * May not work.
+     * @param p
+     * @param handler
+     */
+  @Override
+  public void removeAllMatching(Predicate<V> p, Handler<AsyncResult<Void>> handler) {
+      final Set<V> toRemove = Collections.synchronizedSet( new HashSet<>());
+
+      keys.iterator().thenCompose(ki -> {
+          final List<CompletableFuture<?>> r2 = new ArrayList<>();
+          ki.forEachRemaining((k) -> {
+              r2.add(map.get(k).thenCompose( vs -> {
+                  toRemove.addAll(vs);
+                  return CompletableFuture.completedFuture(true);
+              }));
+
+          });
+          return CompletableFuture.allOf(r2.toArray(new CompletableFuture<?>[]{}));
+      } ).thenCompose(y ->{
+          final List<CompletableFuture<?>> r2 = new ArrayList<>();
+          toRemove.forEach(x ->{
+              r2.add(map.removeValue(x));
+          });
+          return CompletableFuture.allOf(r2.toArray(new CompletableFuture<?>[]{}));
+      }).whenComplete(VertxFutures.voidHandler(handler, vertx.getOrCreateContext()));
+
+
+    //TODO:proper implementation
+//    throw new RuntimeException("NOT IMPLEMENTED");
+
   }
 
 }

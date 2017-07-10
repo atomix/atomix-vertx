@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>io.atomix.vertx</groupId>
+  <artifactId>atomix-vertx</artifactId>
+  <versioning>
+    <versions>
+      <version>1.0.8-SNAPSHOT</version>
+    </versions>
+    <lastUpdated>20170710111429</lastUpdated>
+  </versioning>
+</metadata>
