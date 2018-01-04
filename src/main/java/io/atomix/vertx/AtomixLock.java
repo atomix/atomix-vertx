@@ -15,14 +15,11 @@
  */
 package io.atomix.vertx;
 
-import io.atomix.catalyst.util.Assert;
-import io.atomix.concurrent.DistributedLock;
+import io.atomix.core.lock.DistributedLock;
 import io.vertx.core.Vertx;
 import io.vertx.core.shareddata.Lock;
 
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Atomix distributed lock.
@@ -33,22 +30,12 @@ public class AtomixLock implements Lock {
   private final DistributedLock lock;
 
   public AtomixLock(Vertx vertx, DistributedLock lock) {
-    this.lock = Assert.notNull(lock, "lock");
+    this.lock = checkNotNull(lock, "lock cannot be null");
   }
 
   @Override
   public void release() {
-    try {
-      lock.unlock().get(10, TimeUnit.SECONDS);
-    } catch (InterruptedException | TimeoutException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
-      } else {
-        throw new RuntimeException(e.getCause());
-      }
-    }
+    lock.unlock();
   }
 
 }

@@ -15,12 +15,13 @@
  */
 package io.atomix.vertx;
 
-import io.atomix.catalyst.util.Assert;
-import io.atomix.variables.DistributedLong;
+import io.atomix.core.counter.AsyncAtomicCounter;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.shareddata.Counter;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Atomix counter.
@@ -29,11 +30,11 @@ import io.vertx.core.shareddata.Counter;
  */
 public class AtomixCounter implements Counter {
   private final Vertx vertx;
-  private final DistributedLong counter;
+  private final AsyncAtomicCounter counter;
 
-  public AtomixCounter(Vertx vertx, DistributedLong counter) {
-    this.vertx = Assert.notNull(vertx, "vertx");
-    this.counter = Assert.notNull(counter, "counter");
+  public AtomixCounter(Vertx vertx, AsyncAtomicCounter counter) {
+    this.vertx = checkNotNull(vertx, "vertx cannot be null");
+    this.counter = checkNotNull(counter, "counter cannot be null");
   }
 
   @Override

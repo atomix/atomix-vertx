@@ -15,14 +15,16 @@
  */
 package io.atomix.vertx;
 
-import io.atomix.catalyst.util.Assert;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+
+import io.atomix.utils.time.Versioned;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 
-import java.util.function.BiConsumer;
-import java.util.function.Function;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Vert.x future utilities.
@@ -38,8 +40,8 @@ final class VertxFutures {
    * Wraps a void Vert.x handler.
    */
   static <T> BiConsumer<T, Throwable> voidHandler(Handler<AsyncResult<Void>> handler, Context context) {
-    Assert.notNull(handler, "handler");
-    Assert.notNull(context, "context");
+    checkNotNull(handler, "handler cannot be null");
+    checkNotNull(context, "context cannot be null");
     return (result, error) -> {
       if (error == null) {
         context.runOnContext(v -> Future.<Void>succeededFuture().setHandler(handler));
@@ -53,11 +55,26 @@ final class VertxFutures {
    * Wraps a Vert.x handler.
    */
   static <T> BiConsumer<T, Throwable> resultHandler(Handler<AsyncResult<T>> handler, Context context) {
-    Assert.notNull(handler, "handler");
-    Assert.notNull(context, "context");
+    checkNotNull(handler, "handler cannot be null");
+    checkNotNull(context, "context cannot be null");
     return (result, error) -> {
       if (error == null) {
         context.runOnContext(v -> Future.succeededFuture(result).setHandler(handler));
+      } else {
+        context.runOnContext(v -> Future.<T>failedFuture(error).setHandler(handler));
+      }
+    };
+  }
+
+  /**
+   * Wraps a Vert.x handler.
+   */
+  static <T> BiConsumer<Versioned<T>, Throwable> versionedResultHandler(Handler<AsyncResult<T>> handler, Context context) {
+    checkNotNull(handler, "handler cannot be null");
+    checkNotNull(context, "context cannot be null");
+    return (result, error) -> {
+      if (error == null) {
+        context.runOnContext(v -> Future.succeededFuture(Versioned.valueOrNull(result)).setHandler(handler));
       } else {
         context.runOnContext(v -> Future.<T>failedFuture(error).setHandler(handler));
       }

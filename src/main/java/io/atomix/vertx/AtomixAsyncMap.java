@@ -15,14 +15,20 @@
  */
 package io.atomix.vertx;
 
-import io.atomix.catalyst.util.Assert;
-import io.atomix.collections.DistributedMap;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import io.atomix.core.map.AsyncConsistentMap;
+import io.atomix.utils.time.Versioned;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.shareddata.AsyncMap;
 
-import java.time.Duration;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Atomix async map.
@@ -31,16 +37,16 @@ import java.time.Duration;
  */
 public class AtomixAsyncMap<K, V> implements AsyncMap<K, V> {
   private final Vertx vertx;
-  private final DistributedMap<K, V> map;
+  private final AsyncConsistentMap<K, V> map;
 
-  AtomixAsyncMap(Vertx vertx, DistributedMap<K, V> map) {
-    this.vertx = Assert.notNull(vertx, "vertx");
-    this.map = Assert.notNull(map, "map");
+  AtomixAsyncMap(Vertx vertx, AsyncConsistentMap<K, V> map) {
+    this.vertx = checkNotNull(vertx, "vertx cannot be null");
+    this.map = checkNotNull(map, "map cannot be null");
   }
 
   @Override
   public void get(K k, Handler<AsyncResult<V>> handler) {
-    map.get(k).whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
+    map.get(k).whenComplete(VertxFutures.versionedResultHandler(handler, vertx.getOrCreateContext()));
   }
 
   @Override
@@ -55,17 +61,17 @@ public class AtomixAsyncMap<K, V> implements AsyncMap<K, V> {
 
   @Override
   public void putIfAbsent(K k, V v, Handler<AsyncResult<V>> handler) {
-    map.putIfAbsent(k, v).whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
+    map.putIfAbsent(k, v).whenComplete(VertxFutures.versionedResultHandler(handler, vertx.getOrCreateContext()));
   }
 
   @Override
   public void putIfAbsent(K k, V v, long l, Handler<AsyncResult<V>> handler) {
-    map.putIfAbsent(k, v, Duration.ofMillis(l)).whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
+    map.putIfAbsent(k, v, Duration.ofMillis(l)).whenComplete(VertxFutures.versionedResultHandler(handler, vertx.getOrCreateContext()));
   }
 
   @Override
   public void remove(K k, Handler<AsyncResult<V>> handler) {
-    map.remove(k).whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
+    map.remove(k).whenComplete(VertxFutures.versionedResultHandler(handler, vertx.getOrCreateContext()));
   }
 
   @Override
@@ -75,7 +81,7 @@ public class AtomixAsyncMap<K, V> implements AsyncMap<K, V> {
 
   @Override
   public void replace(K k, V v, Handler<AsyncResult<V>> handler) {
-    map.replace(k, v).whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
+    map.replace(k, v).whenComplete(VertxFutures.versionedResultHandler(handler, vertx.getOrCreateContext()));
   }
 
   @Override
@@ -93,4 +99,25 @@ public class AtomixAsyncMap<K, V> implements AsyncMap<K, V> {
     map.size().whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
   }
 
+  @Override
+  public void keys(Handler<AsyncResult<Set<K>>> handler) {
+    map.keySet().whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
+  }
+
+  @Override
+  public void values(Handler<AsyncResult<List<V>>> handler) {
+    map.values().whenComplete(VertxFutures.convertHandler(handler,
+        result -> result.stream()
+            .map(Versioned::valueOrNull)
+            .collect(Collectors.toList()),
+        vertx.getOrCreateContext()));
+  }
+
+  @Override
+  public void entries(Handler<AsyncResult<Map<K, V>>> handler) {
+    map.entrySet().whenComplete(VertxFutures.convertHandler(handler,
+        entries -> entries.stream()
+            .collect(Collectors.toMap(e -> e.getKey(), e -> Versioned.valueOrNull(e.getValue()))),
+        vertx.getOrCreateContext()));
+  }
 }

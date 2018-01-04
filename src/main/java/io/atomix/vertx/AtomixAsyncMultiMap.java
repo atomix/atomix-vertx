@@ -15,13 +15,19 @@
  */
 package io.atomix.vertx;
 
-import io.atomix.catalyst.util.Assert;
-import io.atomix.collections.DistributedMultiMap;
+import java.util.Collections;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+
+import io.atomix.core.multimap.AsyncConsistentMultimap;
+import io.atomix.utils.concurrent.Futures;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.spi.cluster.AsyncMultiMap;
 import io.vertx.core.spi.cluster.ChoosableIterable;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Atomix async multi map.
@@ -30,11 +36,11 @@ import io.vertx.core.spi.cluster.ChoosableIterable;
  */
 public class AtomixAsyncMultiMap<K, V> implements AsyncMultiMap<K, V> {
   private final Vertx vertx;
-  private final DistributedMultiMap<K, V> map;
+  private final AsyncConsistentMultimap<K, V> map;
 
-  public AtomixAsyncMultiMap(Vertx vertx, DistributedMultiMap<K, V> map) {
-    this.vertx = Assert.notNull(vertx, "vertx");
-    this.map = Assert.notNull(map, "map");
+  public AtomixAsyncMultiMap(Vertx vertx, AsyncConsistentMultimap<K, V> map) {
+    this.vertx = checkNotNull(vertx, "vertx cannot be null");
+    this.map = checkNotNull(map, "map cannot be null");
   }
 
   @Override
@@ -43,8 +49,14 @@ public class AtomixAsyncMultiMap<K, V> implements AsyncMultiMap<K, V> {
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public void get(K k, Handler<AsyncResult<ChoosableIterable<V>>> handler) {
-    map.get(k).whenComplete(VertxFutures.convertHandler(handler, AtomixChoosableIterable::new, vertx.getOrCreateContext()));
+    map.get(k).whenComplete(VertxFutures.convertHandler(
+        handler,
+        collection -> collection != null
+            ? new AtomixChoosableIterable(collection.value())
+            : new AtomixChoosableIterable<V>(Collections.emptyList()),
+        vertx.getOrCreateContext()));
   }
 
   @Override
@@ -54,7 +66,17 @@ public class AtomixAsyncMultiMap<K, V> implements AsyncMultiMap<K, V> {
 
   @Override
   public void removeAllForValue(V v, Handler<AsyncResult<Void>> handler) {
-    map.removeValue(v).whenComplete(VertxFutures.voidHandler(handler, vertx.getOrCreateContext()));
+    map.keySet()
+        .thenCompose(keys -> Futures.allOf(keys.stream().map(key -> map.remove(key, v)).collect(Collectors.toList())))
+        .whenComplete(VertxFutures.voidHandler(handler, vertx.getOrCreateContext()));
   }
 
+  @Override
+  public void removeAllMatching(Predicate<V> p, Handler<AsyncResult<Void>> handler) {
+    map.entries().thenCompose(entries -> Futures.allOf(entries.stream()
+        .filter(e -> p.test(e.getValue()))
+        .map(e -> map.remove(e.getKey(), e.getValue()))
+        .collect(Collectors.toList())))
+        .whenComplete(VertxFutures.voidHandler(handler, vertx.getOrCreateContext()));
+  }
 }

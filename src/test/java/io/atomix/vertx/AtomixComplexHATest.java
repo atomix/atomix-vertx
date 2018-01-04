@@ -39,7 +39,7 @@ public class AtomixComplexHATest extends ComplexHATest {
   }
 
   @Test
-  @Repeat(times=1)
+  @Repeat(times = 1)
   public void testComplexFailover() {
     super.testComplexFailover();
   }
