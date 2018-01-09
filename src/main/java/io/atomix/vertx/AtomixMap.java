@@ -15,16 +15,17 @@
  */
 package io.atomix.vertx;
 
-import io.atomix.catalyst.util.Assert;
-import io.atomix.collections.DistributedMap;
-import io.vertx.core.Vertx;
-
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+
+import com.google.common.collect.Maps;
+import io.atomix.core.map.ConsistentMap;
+import io.atomix.utils.time.Versioned;
+import io.vertx.core.Vertx;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Atomix synchronous map.
@@ -32,193 +33,82 @@ import java.util.concurrent.TimeoutException;
  * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
  */
 public class AtomixMap<K, V> implements Map<K, V> {
-  private final DistributedMap<K, V> map;
+  private final ConsistentMap<K, V> map;
 
-  public AtomixMap(Vertx vertx, DistributedMap<K, V> map) {
-    this.map = Assert.notNull(map, "map");
+  public AtomixMap(Vertx vertx, ConsistentMap<K, V> map) {
+    this.map = checkNotNull(map, "map cannot be null");
   }
 
   @Override
   public int size() {
-    try {
-      return map.size().get(10, TimeUnit.SECONDS);
-    } catch (InterruptedException | TimeoutException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
-      } else {
-        throw new RuntimeException(e.getCause());
-      }
-    }
+    return map.size();
   }
 
   @Override
   public boolean isEmpty() {
-    try {
-      return map.isEmpty().get(10, TimeUnit.SECONDS);
-    } catch (InterruptedException | TimeoutException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
-      } else {
-        throw new RuntimeException(e.getCause());
-      }
-    }
+    return map.isEmpty();
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public boolean containsKey(Object key) {
-    try {
-      return map.containsKey(key).get(10, TimeUnit.SECONDS);
-    } catch (InterruptedException | TimeoutException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
-      } else {
-        throw new RuntimeException(e.getCause());
-      }
-    }
+    return map.containsKey((K) key);
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public boolean containsValue(Object value) {
-    try {
-      return map.containsValue(value).get(10, TimeUnit.SECONDS);
-    } catch (InterruptedException | TimeoutException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
-      } else {
-        throw new RuntimeException(e.getCause());
-      }
-    }
+    return map.containsValue((V) value);
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public V get(Object key) {
-    try {
-      return map.get(key).get(10, TimeUnit.SECONDS);
-    } catch (InterruptedException | TimeoutException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
-      } else {
-        throw new RuntimeException(e.getCause());
-      }
-    }
+    return Versioned.valueOrNull(map.get((K) key));
   }
 
   @Override
   public V put(K key, V value) {
-    try {
-      return map.put(key, value).get(10, TimeUnit.SECONDS);
-    } catch (InterruptedException | TimeoutException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
-      } else {
-        throw new RuntimeException(e.getCause());
-      }
-    }
+    return Versioned.valueOrNull(map.put(key, value));
   }
 
   @Override
   @SuppressWarnings("unchecked")
   public V remove(Object key) {
-    try {
-      return map.remove((K) key).get(10, TimeUnit.SECONDS);
-    } catch (InterruptedException | TimeoutException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
-      } else {
-        throw new RuntimeException(e.getCause());
-      }
-    }
+    return Versioned.valueOrNull(map.remove((K) key));
   }
 
   @Override
   public void putAll(Map<? extends K, ? extends V> m) {
     for (Map.Entry<? extends K, ? extends V> entry : m.entrySet()) {
-      try {
-        map.put(entry.getKey(), entry.getValue()).get(10, TimeUnit.SECONDS);
-      } catch (InterruptedException | TimeoutException e) {
-        throw new RuntimeException(e);
-      } catch (ExecutionException e) {
-        if (e.getCause() instanceof RuntimeException) {
-          throw (RuntimeException) e.getCause();
-        } else {
-          throw new RuntimeException(e.getCause());
-        }
-      }
+      map.put(entry.getKey(), entry.getValue());
     }
   }
 
   @Override
   public void clear() {
-    try {
-      map.clear().get(10, TimeUnit.SECONDS);
-    } catch (InterruptedException | TimeoutException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
-      } else {
-        throw new RuntimeException(e.getCause());
-      }
-    }
+    map.clear();
   }
 
   @Override
   public Set<K> keySet() {
-    try {
-      return map.keySet().get(10, TimeUnit.SECONDS);
-    } catch (InterruptedException | TimeoutException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
-      } else {
-        throw new RuntimeException(e.getCause());
-      }
-    }
+    return map.keySet();
   }
 
   @Override
   public Collection<V> values() {
-    try {
-      return map.values().get(10, TimeUnit.SECONDS);
-    } catch (InterruptedException | TimeoutException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
-      } else {
-        throw new RuntimeException(e.getCause());
-      }
-    }
+    return map.values()
+        .stream()
+        .map(Versioned::valueOrNull)
+        .collect(Collectors.toList());
   }
 
   @Override
   public Set<Entry<K, V>> entrySet() {
-    try {
-      return map.entrySet().get(10, TimeUnit.SECONDS);
-    } catch (InterruptedException | TimeoutException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
-      } else {
-        throw new RuntimeException(e.getCause());
-      }
-    }
+    return map.entrySet()
+        .stream()
+        .map(entry -> Maps.immutableEntry(entry.getKey(), Versioned.valueOrNull(entry.getValue())))
+        .collect(Collectors.toSet());
   }
 
 }

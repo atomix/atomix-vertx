@@ -15,10 +15,10 @@
  */
 package io.atomix.vertx;
 
-import io.atomix.catalyst.buffer.BufferInput;
-import io.atomix.catalyst.buffer.BufferOutput;
-import io.atomix.catalyst.serializer.Serializer;
-import io.atomix.catalyst.serializer.TypeSerializer;
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.Serializer;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
 import io.vertx.core.VertxException;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.shareddata.impl.ClusterSerializable;
@@ -28,28 +28,26 @@ import io.vertx.core.shareddata.impl.ClusterSerializable;
  *
  * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
  */
-public class ClusterSerializableSerializer<T extends ClusterSerializable> implements TypeSerializer<T> {
-
+public class ClusterSerializableSerializer<T extends ClusterSerializable> extends Serializer<T> {
   @Override
-  public void write(T object, BufferOutput output, Serializer serializer) {
+  public void write(Kryo kryo, Output output, T object) {
     Buffer buffer = Buffer.buffer();
     object.writeToBuffer(buffer);
     byte[] bytes = buffer.getBytes();
-    output.writeUnsignedShort(bytes.length).write(bytes);
+    output.writeVarInt(bytes.length, true);
+    output.writeBytes(bytes);
   }
 
   @Override
-  public T read(Class<T> type, BufferInput input, Serializer serializer) {
+  public T read(Kryo kryo, Input input, Class<T> type) {
     try {
-      T object = type.newInstance();
-      byte[] bytes = new byte[input.readUnsignedShort()];
-      input.read(bytes);
+      byte[] bytes = input.readBytes(input.readVarInt(true));
       Buffer buffer = Buffer.buffer(bytes);
+      T object = type.newInstance();
       object.readFromBuffer(0, buffer);
       return object;
     } catch (InstantiationException | IllegalAccessException e) {
       throw new VertxException("failed to instantiate serializable type: " + type);
     }
   }
-
 }

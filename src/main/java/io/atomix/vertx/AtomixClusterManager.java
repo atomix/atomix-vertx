@@ -15,16 +15,36 @@
  */
 package io.atomix.vertx;
 
-import io.atomix.Atomix;
-import io.atomix.catalyst.util.Assert;
-import io.atomix.catalyst.util.concurrent.SingleThreadContext;
-import io.atomix.catalyst.util.concurrent.ThreadContext;
-import io.atomix.collections.DistributedMap;
-import io.atomix.collections.DistributedMultiMap;
-import io.atomix.group.DistributedGroup;
-import io.atomix.group.GroupMember;
-import io.atomix.group.LocalMember;
-import io.vertx.core.*;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import io.atomix.cluster.ClusterEvent;
+import io.atomix.cluster.ClusterEventListener;
+import io.atomix.core.Atomix;
+import io.atomix.core.lock.DistributedLock;
+import io.atomix.primitive.Consistency;
+import io.atomix.primitive.Persistence;
+import io.atomix.primitive.Recovery;
+import io.atomix.primitive.Replication;
+import io.atomix.utils.concurrent.SingleThreadContext;
+import io.atomix.utils.concurrent.ThreadContext;
+import io.atomix.utils.serializer.KryoNamespace;
+import io.atomix.utils.serializer.KryoNamespaces;
+import io.atomix.utils.serializer.Serializer;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Context;
+import io.vertx.core.Future;
+import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
+import io.vertx.core.VertxException;
+import io.vertx.core.net.impl.ServerID;
 import io.vertx.core.shareddata.AsyncMap;
 import io.vertx.core.shareddata.Counter;
 import io.vertx.core.shareddata.Lock;
@@ -33,13 +53,7 @@ import io.vertx.core.spi.cluster.AsyncMultiMap;
 import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.core.spi.cluster.NodeListener;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Vert.x Atomix cluster manager.
@@ -49,16 +63,22 @@ import java.util.concurrent.TimeoutException;
 public class AtomixClusterManager implements ClusterManager {
   private final Atomix atomix;
   private final ThreadContext context;
-  private volatile DistributedGroup group;
   private NodeListener listener;
-  private volatile LocalMember member;
-  private volatile boolean active;
+  private final AtomicBoolean active = new AtomicBoolean();
   private Vertx vertx;
+  private final ClusterEventListener clusterListener = this::handleClusterEvent;
+  private final LoadingCache<String, CompletableFuture<DistributedLock>> lockCache = CacheBuilder.newBuilder()
+      .maximumSize(100)
+      .build(new CacheLoader<String, CompletableFuture<DistributedLock>>() {
+        @Override
+        public CompletableFuture<DistributedLock> load(String key) throws Exception {
+          return atomix.lockBuilder(key).buildAsync();
+        }
+      });
 
   public AtomixClusterManager(Atomix atomix) {
-    this.atomix = Assert.notNull(atomix, "atomix");
-    this.context = new SingleThreadContext("atomix-vertx-%d", atomix.serializer());
-    atomix.serializer().registerDefault(ClusterSerializable.class, ClusterSerializableSerializer.class);
+    this.atomix = checkNotNull(atomix, "atomix cannot be null");
+    this.context = new SingleThreadContext("atomix-vertx-%d");
   }
 
   /**
@@ -75,36 +95,69 @@ public class AtomixClusterManager implements ClusterManager {
     this.vertx = vertx;
   }
 
+  /**
+   * Creates a new Vert.x compatible serializer.
+   */
+  private Serializer createSerializer() {
+    return Serializer.using(KryoNamespace.builder()
+        .setRegistrationRequired(false)
+        .register(KryoNamespaces.BASIC)
+        .register(ServerID.class)
+        .register(new ClusterSerializableSerializer<>(), ClusterSerializable.class)
+        .build());
+  }
+
   @Override
   public <K, V> void getAsyncMultiMap(String name, Handler<AsyncResult<AsyncMultiMap<K, V>>> handler) {
-    atomix.<K, V>getMultiMap(name).whenComplete(VertxFutures.<DistributedMultiMap<K, V>, AsyncMultiMap<K, V>>convertHandler(handler, map -> new AtomixAsyncMultiMap<K, V>(vertx, map), vertx.getOrCreateContext()));
+    atomix.<K, V>consistentMultimapBuilder(name)
+        .withSerializer(createSerializer())
+        .withConsistency(Consistency.LINEARIZABLE)
+        .withPersistence(Persistence.PERSISTENT)
+        .withReplication(Replication.SYNCHRONOUS)
+        .withRecovery(Recovery.RECOVER)
+        .withMaxRetries(5)
+        .buildAsync()
+        .whenComplete(VertxFutures.convertHandler(
+            handler, map -> new AtomixAsyncMultiMap<>(vertx, map.async()), vertx.getOrCreateContext()));
   }
 
   @Override
   public <K, V> void getAsyncMap(String name, Handler<AsyncResult<AsyncMap<K, V>>> handler) {
-    atomix.<K, V>getMap(name).whenComplete(VertxFutures.<DistributedMap<K, V>, AsyncMap<K, V>>convertHandler(handler, map -> new AtomixAsyncMap<K, V>(vertx, map), vertx.getOrCreateContext()));
+    atomix.<K, V>consistentMapBuilder(name)
+        .withSerializer(createSerializer())
+        .withConsistency(Consistency.LINEARIZABLE)
+        .withPersistence(Persistence.PERSISTENT)
+        .withReplication(Replication.SYNCHRONOUS)
+        .withRecovery(Recovery.RECOVER)
+        .withMaxRetries(5)
+        .buildAsync()
+        .whenComplete(VertxFutures.convertHandler(
+            handler, map -> new AtomixAsyncMap<>(vertx, map.async()), vertx.getOrCreateContext()));
   }
 
   @Override
   public <K, V> Map<K, V> getSyncMap(String name) {
-    try {
-      return new AtomixMap<>(vertx, atomix.<K, V>getMap(name).get(10, TimeUnit.SECONDS));
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      throw new RuntimeException(e);
-    }
+    return new AtomixMap<>(vertx, atomix.<K, V>consistentMapBuilder(name)
+        .withSerializer(createSerializer())
+        .withConsistency(Consistency.LINEARIZABLE)
+        .withPersistence(Persistence.PERSISTENT)
+        .withReplication(Replication.SYNCHRONOUS)
+        .withRecovery(Recovery.RECOVER)
+        .withMaxRetries(5)
+        .build());
   }
 
   @Override
   public void getLockWithTimeout(String name, long timeout, Handler<AsyncResult<Lock>> handler) {
     Context context = vertx.getOrCreateContext();
-    atomix.getLock(name).whenComplete((lock, error) -> {
+    lockCache.getUnchecked(name).whenComplete((lock, error) -> {
       if (error == null) {
-        lock.tryLock(Duration.ofMillis(timeout)).whenComplete((lockResult, lockError) -> {
+        lock.async().tryLock(Duration.ofMillis(timeout)).whenComplete((lockResult, lockError) -> {
           if (lockError == null) {
-            if (lockResult == null) {
-              context.runOnContext(v -> Future.<Lock>failedFuture(new VertxException("Timed out waiting to get lock " + name)).setHandler(handler));
-            } else {
+            if (lockResult.isPresent()) {
               context.runOnContext(v -> Future.<Lock>succeededFuture(new AtomixLock(vertx, lock)).setHandler(handler));
+            } else {
+              context.runOnContext(v -> Future.<Lock>failedFuture(new VertxException("Timed out waiting to get lock " + name)).setHandler(handler));
             }
           } else {
             context.runOnContext(v -> Future.<Lock>failedFuture(lockError).setHandler(handler));
@@ -118,21 +171,22 @@ public class AtomixClusterManager implements ClusterManager {
 
   @Override
   public void getCounter(String name, Handler<AsyncResult<Counter>> handler) {
-    atomix.getLong(name).whenComplete(VertxFutures.convertHandler(handler, counter -> new AtomixCounter(vertx, counter), vertx.getOrCreateContext()));
+    atomix.atomicCounterBuilder(name).buildAsync()
+        .whenComplete(VertxFutures.convertHandler(
+            handler, counter -> new AtomixCounter(vertx, counter.async()), vertx.getOrCreateContext()));
   }
 
   @Override
   public String getNodeID() {
-    return member.id();
+    return atomix.clusterService().getLocalNode().id().id();
   }
 
   @Override
   public List<String> getNodes() {
-    List<String> nodes = new ArrayList<>();
-    for (GroupMember member : group.members()) {
-      nodes.add(member.id());
-    }
-    return nodes;
+    return atomix.clusterService().getNodes()
+        .stream()
+        .map(node -> node.id().id())
+        .collect(Collectors.toList());
   }
 
   @Override
@@ -143,50 +197,37 @@ public class AtomixClusterManager implements ClusterManager {
   @Override
   public synchronized void join(Handler<AsyncResult<Void>> handler) {
     Context context = vertx.getOrCreateContext();
-    active = true;
-    atomix.getGroup("__atomixVertx").whenComplete((group, groupError) -> {
-      if (groupError == null) {
-        this.group = group;
-        group.join().whenComplete((member, joinError) -> {
-          if (joinError == null) {
-            this.member = member;
-            group.onJoin(this::handleJoin);
-            group.onLeave(this::handleLeave);
-            context.runOnContext(v -> Future.<Void>succeededFuture().setHandler(handler));
-          } else {
-            context.runOnContext(v -> Future.<Void>failedFuture(joinError).setHandler(handler));
-          }
-        });
-      } else {
-        context.runOnContext(v -> Future.<Void>failedFuture(groupError).setHandler(handler));
-      }
-    });
-  }
-
-  /**
-   * Handles a member joining.
-   */
-  private void handleJoin(GroupMember member) {
-    if (listener != null) {
-      context.executor().execute(() -> {
-        synchronized (this) {
-          if (active) {
-            listener.nodeAdded(member.id());
-          }
+    if (active.compareAndSet(false, true)) {
+      atomix.start().whenComplete((result, error) -> {
+        if (error == null) {
+          atomix.clusterService().addListener(clusterListener);
+          context.runOnContext(v -> Future.<Void>succeededFuture().setHandler(handler));
+        } else {
+          context.runOnContext(v -> Future.<Void>failedFuture(error).setHandler(handler));
         }
       });
+    } else {
+      context.runOnContext(v -> Future.<Void>succeededFuture().setHandler(handler));
     }
   }
 
   /**
-   * Handles a member leaving.
+   * Handles a cluster event.
    */
-  private void handleLeave(GroupMember member) {
-    if (listener != null) {
-      context.executor().execute(() -> {
-        synchronized (this) {
-          if (active) {
-            listener.nodeLeft(member.id());
+  private void handleClusterEvent(ClusterEvent event) {
+    NodeListener nodeListener = this.listener;
+    if (nodeListener != null) {
+      context.execute(() -> {
+        if (active.get()) {
+          switch (event.type()) {
+            case NODE_ACTIVATED:
+              nodeListener.nodeAdded(event.subject().id().id());
+              break;
+            case NODE_DEACTIVATED:
+              nodeListener.nodeLeft(event.subject().id().id());
+              break;
+            default:
+              break;
           }
         }
       });
@@ -196,12 +237,9 @@ public class AtomixClusterManager implements ClusterManager {
   @Override
   public synchronized void leave(Handler<AsyncResult<Void>> handler) {
     Context context = vertx.getOrCreateContext();
-    if (active) {
-      active = false;
-      member.leave().whenComplete((leaveResult, leaveError) -> {
+    if (active.compareAndSet(true, false)) {
+      atomix.stop().whenComplete((leaveResult, leaveError) -> {
         if (leaveError == null) {
-          group = null;
-          member = null;
           context.runOnContext(v -> Future.<Void>succeededFuture().setHandler(handler));
         } else {
           context.runOnContext(v -> Future.<Void>failedFuture(leaveError).setHandler(handler));
@@ -214,7 +252,7 @@ public class AtomixClusterManager implements ClusterManager {
 
   @Override
   public boolean isActive() {
-    return active;
+    return active.get();
   }
 
 }
