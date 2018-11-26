@@ -25,18 +25,14 @@ import java.util.stream.Collectors;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import io.atomix.cluster.ClusterEvent;
-import io.atomix.cluster.ClusterEventListener;
+import io.atomix.cluster.ClusterMembershipEvent;
+import io.atomix.cluster.ClusterMembershipEventListener;
 import io.atomix.core.Atomix;
-import io.atomix.core.lock.DistributedLock;
-import io.atomix.primitive.Consistency;
-import io.atomix.primitive.Persistence;
-import io.atomix.primitive.Recovery;
-import io.atomix.primitive.Replication;
+import io.atomix.core.lock.AtomicLock;
 import io.atomix.utils.concurrent.SingleThreadContext;
 import io.atomix.utils.concurrent.ThreadContext;
-import io.atomix.utils.serializer.KryoNamespace;
-import io.atomix.utils.serializer.KryoNamespaces;
+import io.atomix.utils.serializer.Namespace;
+import io.atomix.utils.serializer.Namespaces;
 import io.atomix.utils.serializer.Serializer;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
@@ -66,13 +62,13 @@ public class AtomixClusterManager implements ClusterManager {
   private NodeListener listener;
   private final AtomicBoolean active = new AtomicBoolean();
   private Vertx vertx;
-  private final ClusterEventListener clusterListener = this::handleClusterEvent;
-  private final LoadingCache<String, CompletableFuture<DistributedLock>> lockCache = CacheBuilder.newBuilder()
+  private final ClusterMembershipEventListener clusterListener = this::handleClusterEvent;
+  private final LoadingCache<String, CompletableFuture<AtomicLock>> lockCache = CacheBuilder.newBuilder()
       .maximumSize(100)
-      .build(new CacheLoader<String, CompletableFuture<DistributedLock>>() {
+      .build(new CacheLoader<String, CompletableFuture<AtomicLock>>() {
         @Override
-        public CompletableFuture<DistributedLock> load(String key) throws Exception {
-          return atomix.lockBuilder(key).buildAsync();
+        public CompletableFuture<AtomicLock> load(String key) throws Exception {
+          return atomix.atomicLockBuilder(key).buildAsync();
         }
       });
 
@@ -99,9 +95,9 @@ public class AtomixClusterManager implements ClusterManager {
    * Creates a new Vert.x compatible serializer.
    */
   private Serializer createSerializer() {
-    return Serializer.using(KryoNamespace.builder()
+    return Serializer.using(Namespace.builder()
         .setRegistrationRequired(false)
-        .register(KryoNamespaces.BASIC)
+        .register(Namespaces.BASIC)
         .register(ServerID.class)
         .register(new ClusterSerializableSerializer<>(), ClusterSerializable.class)
         .build());
@@ -109,27 +105,17 @@ public class AtomixClusterManager implements ClusterManager {
 
   @Override
   public <K, V> void getAsyncMultiMap(String name, Handler<AsyncResult<AsyncMultiMap<K, V>>> handler) {
-    atomix.<K, V>consistentMultimapBuilder(name)
+    atomix.<K, V>atomicMultimapBuilder(name)
         .withSerializer(createSerializer())
-        .withConsistency(Consistency.LINEARIZABLE)
-        .withPersistence(Persistence.PERSISTENT)
-        .withReplication(Replication.SYNCHRONOUS)
-        .withRecovery(Recovery.RECOVER)
-        .withMaxRetries(5)
-        .buildAsync()
+        .getAsync()
         .whenComplete(VertxFutures.convertHandler(
             handler, map -> new AtomixAsyncMultiMap<>(vertx, map.async()), vertx.getOrCreateContext()));
   }
 
   @Override
   public <K, V> void getAsyncMap(String name, Handler<AsyncResult<AsyncMap<K, V>>> handler) {
-    atomix.<K, V>consistentMapBuilder(name)
+    atomix.<K, V>atomicMapBuilder(name)
         .withSerializer(createSerializer())
-        .withConsistency(Consistency.LINEARIZABLE)
-        .withPersistence(Persistence.PERSISTENT)
-        .withReplication(Replication.SYNCHRONOUS)
-        .withRecovery(Recovery.RECOVER)
-        .withMaxRetries(5)
         .buildAsync()
         .whenComplete(VertxFutures.convertHandler(
             handler, map -> new AtomixAsyncMap<>(vertx, map.async()), vertx.getOrCreateContext()));
@@ -137,13 +123,8 @@ public class AtomixClusterManager implements ClusterManager {
 
   @Override
   public <K, V> Map<K, V> getSyncMap(String name) {
-    return new AtomixMap<>(vertx, atomix.<K, V>consistentMapBuilder(name)
+    return new AtomixMap<>(vertx, atomix.<K, V>atomicMapBuilder(name)
         .withSerializer(createSerializer())
-        .withConsistency(Consistency.LINEARIZABLE)
-        .withPersistence(Persistence.PERSISTENT)
-        .withReplication(Replication.SYNCHRONOUS)
-        .withRecovery(Recovery.RECOVER)
-        .withMaxRetries(5)
         .build());
   }
 
@@ -178,14 +159,14 @@ public class AtomixClusterManager implements ClusterManager {
 
   @Override
   public String getNodeID() {
-    return atomix.clusterService().getLocalNode().id().id();
+    return atomix.getMembershipService().getLocalMember().id().id();
   }
 
   @Override
   public List<String> getNodes() {
-    return atomix.clusterService().getNodes()
+    return atomix.getMembershipService().getMembers()
         .stream()
-        .map(node -> node.id().id())
+        .map(member -> member.id().id())
         .collect(Collectors.toList());
   }
 
@@ -200,7 +181,7 @@ public class AtomixClusterManager implements ClusterManager {
     if (active.compareAndSet(false, true)) {
       atomix.start().whenComplete((result, error) -> {
         if (error == null) {
-          atomix.clusterService().addListener(clusterListener);
+          atomix.getMembershipService().addListener(clusterListener);
           context.runOnContext(v -> Future.<Void>succeededFuture().setHandler(handler));
         } else {
           context.runOnContext(v -> Future.<Void>failedFuture(error).setHandler(handler));
@@ -214,16 +195,16 @@ public class AtomixClusterManager implements ClusterManager {
   /**
    * Handles a cluster event.
    */
-  private void handleClusterEvent(ClusterEvent event) {
+  private void handleClusterEvent(ClusterMembershipEvent event) {
     NodeListener nodeListener = this.listener;
     if (nodeListener != null) {
       context.execute(() -> {
         if (active.get()) {
           switch (event.type()) {
-            case NODE_ACTIVATED:
+            case MEMBER_ADDED:
               nodeListener.nodeAdded(event.subject().id().id());
               break;
-            case NODE_DEACTIVATED:
+            case MEMBER_REMOVED:
               nodeListener.nodeLeft(event.subject().id().id());
               break;
             default:

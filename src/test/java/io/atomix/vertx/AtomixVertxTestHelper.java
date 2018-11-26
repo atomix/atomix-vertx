@@ -27,28 +27,16 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.stream.IntStream;
 
-import com.google.common.collect.Maps;
-import io.atomix.cluster.ManagedClusterMetadataService;
-import io.atomix.cluster.ManagedClusterService;
 import io.atomix.cluster.Node;
-import io.atomix.cluster.messaging.ManagedClusterEventingService;
-import io.atomix.cluster.messaging.ManagedClusterMessagingService;
+import io.atomix.cluster.discovery.BootstrapDiscoveryProvider;
 import io.atomix.core.Atomix;
-import io.atomix.messaging.Endpoint;
-import io.atomix.messaging.ManagedMessagingService;
-import io.atomix.primitive.PrimitiveTypeRegistry;
-import io.atomix.primitive.partition.ManagedPartitionGroup;
-import io.atomix.primitive.partition.ManagedPartitionService;
-import io.atomix.primitive.partition.impl.DefaultPartitionService;
-import io.atomix.protocols.backup.partition.PrimaryBackupPartitionGroup;
 import io.atomix.protocols.raft.partition.RaftPartitionGroup;
-import io.atomix.storage.StorageLevel;
+import io.atomix.utils.net.Address;
 
 /**
  * Vert.x test helper.
@@ -57,44 +45,47 @@ import io.atomix.storage.StorageLevel;
  */
 final class AtomixVertxTestHelper {
   private static final int BASE_PORT = 5000;
-  private Map<Integer, Endpoint> endpoints;
   private List<Atomix> instances;
   private int id = 10;
 
   void setUp() throws Exception {
     deleteData();
-    endpoints = Maps.newConcurrentMap();
     instances = new ArrayList<>();
-    instances.add(createAtomix(Node.Type.DATA, 1, 1, 2, 3));
-    instances.add(createAtomix(Node.Type.DATA, 2, 1, 2, 3));
-    instances.add(createAtomix(Node.Type.DATA, 3, 1, 2, 3));
-    List<CompletableFuture<Atomix>> futures = instances.stream().map(Atomix::start).collect(Collectors.toList());
-    CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()])).get(30, TimeUnit.SECONDS);
+    instances.add(createAtomix(1, 1, 2, 3));
+    instances.add(createAtomix(2, 1, 2, 3));
+    instances.add(createAtomix(3, 1, 2, 3));
+    List<CompletableFuture<Void>> futures = instances.stream().map(Atomix::start).collect(Collectors.toList());
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(30, TimeUnit.SECONDS);
   }
 
   /**
    * Creates an Atomix instance.
    */
-  private Atomix createAtomix(Node.Type type, int id, Integer... ids) {
-    Node localNode = Node.builder(String.valueOf(id))
-        .withType(type)
-        .withEndpoint(endpoints.computeIfAbsent(id, i -> Endpoint.from("localhost", findAvailablePort(BASE_PORT + id))))
-        .build();
-
-    Collection<Node> bootstrapNodes = Stream.of(ids)
-        .map(nodeId -> Node.builder(String.valueOf(nodeId))
-            .withType(Node.Type.DATA)
-            .withEndpoint(endpoints.computeIfAbsent(nodeId, i -> Endpoint.from("localhost", findAvailablePort(BASE_PORT + nodeId))))
+  private Atomix createAtomix(int id, int... ids) {
+    Collection<Node> nodes = IntStream.of(ids)
+        .mapToObj(memberId -> Node.builder()
+            .withId(String.valueOf(memberId))
+            .withAddress(Address.from("localhost", BASE_PORT + memberId))
             .build())
         .collect(Collectors.toList());
 
-    return new TestAtomix.Builder()
-        .withClusterName("test")
-        .withDataDirectory(new File("target/test-logs/" + id))
-        .withLocalNode(localNode)
-        .withBootstrapNodes(bootstrapNodes)
-        .withCoordinationPartitions(3)
-        .withDataPartitions(3) // Lower number of partitions for faster testing
+    return Atomix.builder()
+        .withClusterId("test")
+        .withMemberId(String.valueOf(id))
+        .withAddress("localhost", BASE_PORT + id)
+        .withMembershipProvider(new BootstrapDiscoveryProvider(nodes))
+        .withManagementGroup(RaftPartitionGroup.builder("system")
+            .withNumPartitions(1)
+            .withPartitionSize(ids.length)
+            .withMembers(nodes.stream().map(node -> node.id().id()).collect(Collectors.toSet()))
+            .withDataDirectory(new File("target/test-logs/" + id + "/system"))
+            .build())
+        .withPartitionGroups(RaftPartitionGroup.builder("test")
+            .withNumPartitions(3)
+            .withPartitionSize(ids.length)
+            .withMembers(nodes.stream().map(node -> node.id().id()).collect(Collectors.toSet()))
+            .withDataDirectory(new File("target/test-logs/" + id + "/test"))
+            .build())
         .build();
   }
 
@@ -119,7 +110,8 @@ final class AtomixVertxTestHelper {
    * @return The next Atomix cluster manager.
    */
   AtomixClusterManager createClusterManager() {
-    Atomix instance = createAtomix(Node.Type.CLIENT, id++, 1, 2, 3).start().join();
+    Atomix instance = createAtomix(id++, 1, 2, 3);
+    instance.start().join();
     instances.add(instance);
     return new AtomixClusterManager(instance);
   }
@@ -132,7 +124,6 @@ final class AtomixVertxTestHelper {
       // Do nothing
     }
     deleteData();
-    endpoints = Maps.newConcurrentMap();
   }
 
   /**
@@ -154,42 +145,6 @@ final class AtomixVertxTestHelper {
           return FileVisitResult.CONTINUE;
         }
       });
-    }
-  }
-
-  /**
-   * Atomix implementation used for testing.
-   */
-  static class TestAtomix extends Atomix {
-    TestAtomix(ManagedMessagingService messagingService, ManagedClusterMetadataService metadataService, ManagedClusterService clusterService, ManagedClusterMessagingService clusterCommunicator, ManagedClusterEventingService clusterEventService, ManagedPartitionGroup corePartitionGroup, ManagedPartitionService partitions, PrimitiveTypeRegistry primitiveTypes) {
-      super(messagingService, metadataService, clusterService, clusterCommunicator, clusterEventService, corePartitionGroup, partitions, primitiveTypes);
-    }
-
-    static class Builder extends Atomix.Builder {
-      @Override
-      protected ManagedPartitionGroup buildCorePartitionGroup() {
-        return RaftPartitionGroup.builder("core")
-            .withStorageLevel(StorageLevel.MEMORY)
-            .withDataDirectory(new File(dataDirectory, "core"))
-            .withNumPartitions(1)
-            .build();
-      }
-
-      @Override
-      protected ManagedPartitionService buildPartitionService() {
-        if (partitionGroups.isEmpty()) {
-          partitionGroups.add(RaftPartitionGroup.builder(COORDINATION_GROUP_NAME)
-              .withStorageLevel(StorageLevel.MEMORY)
-              .withDataDirectory(new File(dataDirectory, "coordination"))
-              .withNumPartitions(numCoordinationPartitions > 0 ? numCoordinationPartitions : bootstrapNodes.size())
-              .withPartitionSize(coordinationPartitionSize)
-              .build());
-          partitionGroups.add(PrimaryBackupPartitionGroup.builder(DATA_GROUP_NAME)
-              .withNumPartitions(numDataPartitions)
-              .build());
-        }
-        return new DefaultPartitionService(partitionGroups);
-      }
     }
   }
 }

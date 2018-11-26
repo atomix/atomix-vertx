@@ -16,14 +16,14 @@
 package io.atomix.vertx;
 
 import io.vertx.core.spi.cluster.ClusterManager;
-import io.vertx.test.core.ClusterWideMapTestDifferentNodes;
+import io.vertx.test.core.ClusteredAsyncMapTest;
 
 /**
  * Cluster-wide map test.
  *
  * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
  */
-public class AtomixClusterWideMapTest extends ClusterWideMapTestDifferentNodes {
+public class AtomixClusteredAsyncMapTest extends ClusteredAsyncMapTest {
   private final AtomixVertxTestHelper helper = new AtomixVertxTestHelper();
 
   public void setUp() throws Exception {
