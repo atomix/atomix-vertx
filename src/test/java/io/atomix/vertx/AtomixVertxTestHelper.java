@@ -17,13 +17,13 @@ package io.atomix.vertx;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -34,6 +34,7 @@ import java.util.stream.IntStream;
 
 import io.atomix.cluster.Node;
 import io.atomix.cluster.discovery.BootstrapDiscoveryProvider;
+import io.atomix.cluster.protocol.SwimMembershipProtocol;
 import io.atomix.core.Atomix;
 import io.atomix.protocols.raft.partition.RaftPartitionGroup;
 import io.atomix.utils.net.Address;
@@ -72,7 +73,15 @@ final class AtomixVertxTestHelper {
     return Atomix.builder()
         .withClusterId("test")
         .withMemberId(String.valueOf(id))
-        .withAddress("localhost", BASE_PORT + id)
+        .withHost("localhost")
+        .withPort(BASE_PORT + id)
+        .withMembershipProtocol(SwimMembershipProtocol.builder()
+            .withBroadcastDisputes(true)
+            .withBroadcastUpdates(true)
+            .withProbeInterval(Duration.ofMillis(100))
+            .withNotifySuspect(true)
+            .withFailureTimeout(Duration.ofSeconds(3))
+            .build())
         .withMembershipProvider(new BootstrapDiscoveryProvider(nodes))
         .withManagementGroup(RaftPartitionGroup.builder("system")
             .withNumPartitions(1)
@@ -87,21 +96,6 @@ final class AtomixVertxTestHelper {
             .withDataDirectory(new File("target/test-logs/" + id + "/test"))
             .build())
         .build();
-  }
-
-  /**
-   * Finds an available port that a test can bind to.
-   */
-  private static int findAvailablePort(int defaultPort) {
-    try {
-      ServerSocket socket = new ServerSocket(0);
-      socket.setReuseAddress(true);
-      int port = socket.getLocalPort();
-      socket.close();
-      return port;
-    } catch (IOException ex) {
-      return defaultPort;
-    }
   }
 
   /**
