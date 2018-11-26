@@ -26,7 +26,7 @@ import io.vertx.core.shareddata.impl.ClusterSerializable;
 /**
  * Cluster serializable serializer.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 public class ClusterSerializableSerializer<T extends ClusterSerializable> extends Serializer<T> {
   @Override

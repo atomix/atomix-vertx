@@ -55,7 +55,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * Vert.x Atomix cluster manager.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 public class AtomixClusterManager implements ClusterManager {
   private final Atomix atomix;

@@ -21,7 +21,7 @@ import io.vertx.test.core.ClusteredAsyncMapTest;
 /**
  * Cluster-wide map test.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 public class AtomixClusteredAsyncMapTest extends ClusteredAsyncMapTest {
   private final AtomixVertxTestHelper helper = new AtomixVertxTestHelper();

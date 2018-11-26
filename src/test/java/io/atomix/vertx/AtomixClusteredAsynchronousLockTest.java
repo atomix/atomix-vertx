@@ -21,7 +21,7 @@ import io.vertx.test.core.ClusteredAsynchronousLockTest;
 /**
  * Asynchronous lock test.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 public class AtomixClusteredAsynchronousLockTest extends ClusteredAsynchronousLockTest {
   private final AtomixVertxTestHelper helper = new AtomixVertxTestHelper();

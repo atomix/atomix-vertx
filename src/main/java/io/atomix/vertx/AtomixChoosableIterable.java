@@ -23,7 +23,7 @@ import java.util.Iterator;
 /**
  * Atomix choosable iterable.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 class AtomixChoosableIterable<T> implements ChoosableIterable<T> {
   private final Collection<T> collection;

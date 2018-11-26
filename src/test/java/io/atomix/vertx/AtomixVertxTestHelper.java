@@ -42,7 +42,7 @@ import io.atomix.utils.net.Address;
 /**
  * Vert.x test helper.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 final class AtomixVertxTestHelper {
   private static final int BASE_PORT = 5000;

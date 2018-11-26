@@ -21,7 +21,7 @@ import io.vertx.test.core.AsyncMultiMapTest;
 /**
  * Asynchronous multi-map test.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 public class AtomixAsyncMultiMapTest extends AsyncMultiMapTest {
   private final AtomixVertxTestHelper helper = new AtomixVertxTestHelper();
