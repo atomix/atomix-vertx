@@ -15,6 +15,7 @@
  */
 package io.atomix.vertx;
 
+import java.io.File;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -71,6 +72,14 @@ public class AtomixClusterManager implements ClusterManager {
           return atomix.atomicLockBuilder(key).buildAsync();
         }
       });
+
+  public AtomixClusterManager(String configFile) {
+    this(new File(configFile));
+  }
+
+  public AtomixClusterManager(File configFile) {
+    this(new Atomix(configFile));
+  }
 
   public AtomixClusterManager(Atomix atomix) {
     this.atomix = checkNotNull(atomix, "atomix cannot be null");
