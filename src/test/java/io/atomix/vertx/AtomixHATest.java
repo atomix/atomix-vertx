@@ -21,7 +21,7 @@ import io.vertx.test.core.HATest;
 /**
  * Atomix HA test.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 public class AtomixHATest extends HATest {
   private final AtomixVertxTestHelper helper = new AtomixVertxTestHelper();

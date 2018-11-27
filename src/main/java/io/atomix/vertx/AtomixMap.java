@@ -21,7 +21,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.Maps;
-import io.atomix.core.map.ConsistentMap;
+import io.atomix.core.map.AtomicMap;
 import io.atomix.utils.time.Versioned;
 import io.vertx.core.Vertx;
 
@@ -30,12 +30,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * Atomix synchronous map.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 public class AtomixMap<K, V> implements Map<K, V> {
-  private final ConsistentMap<K, V> map;
+  private final AtomicMap<K, V> map;
 
-  public AtomixMap(Vertx vertx, ConsistentMap<K, V> map) {
+  public AtomixMap(Vertx vertx, AtomicMap<K, V> map) {
     this.map = checkNotNull(map, "map cannot be null");
   }
 

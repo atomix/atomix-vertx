@@ -21,9 +21,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import io.atomix.core.map.AsyncConsistentMap;
+import io.atomix.core.map.AsyncAtomicMap;
 import io.atomix.utils.time.Versioned;
 import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.shareddata.AsyncMap;
@@ -33,13 +34,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * Atomix async map.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 public class AtomixAsyncMap<K, V> implements AsyncMap<K, V> {
   private final Vertx vertx;
-  private final AsyncConsistentMap<K, V> map;
+  private final AsyncAtomicMap<K, V> map;
 
-  AtomixAsyncMap(Vertx vertx, AsyncConsistentMap<K, V> map) {
+  AtomixAsyncMap(Vertx vertx, AsyncAtomicMap<K, V> map) {
     this.vertx = checkNotNull(vertx, "vertx cannot be null");
     this.map = checkNotNull(map, "map cannot be null");
   }
@@ -101,23 +102,30 @@ public class AtomixAsyncMap<K, V> implements AsyncMap<K, V> {
 
   @Override
   public void keys(Handler<AsyncResult<Set<K>>> handler) {
-    map.keySet().whenComplete(VertxFutures.resultHandler(handler, vertx.getOrCreateContext()));
+    try {
+      handler.handle(Future.succeededFuture(map.keySet().stream().collect(Collectors.toSet())));
+    } catch (Exception e) {
+      handler.handle(Future.failedFuture(e));
+    }
   }
 
   @Override
   public void values(Handler<AsyncResult<List<V>>> handler) {
-    map.values().whenComplete(VertxFutures.convertHandler(handler,
-        result -> result.stream()
-            .map(Versioned::valueOrNull)
-            .collect(Collectors.toList()),
-        vertx.getOrCreateContext()));
+    try {
+      handler.handle(Future.succeededFuture(map.values().stream().map(Versioned::valueOrNull).collect(Collectors.toList())));
+    } catch (Exception e) {
+      handler.handle(Future.failedFuture(e));
+    }
   }
 
   @Override
   public void entries(Handler<AsyncResult<Map<K, V>>> handler) {
-    map.entrySet().whenComplete(VertxFutures.convertHandler(handler,
-        entries -> entries.stream()
-            .collect(Collectors.toMap(e -> e.getKey(), e -> Versioned.valueOrNull(e.getValue()))),
-        vertx.getOrCreateContext()));
+    try {
+      handler.handle(Future.succeededFuture(map.entrySet()
+          .stream()
+          .collect(Collectors.toMap(e -> e.getKey(), e -> Versioned.valueOrNull(e.getValue())))));
+    } catch (Exception e) {
+      handler.handle(Future.failedFuture(e));
+    }
   }
 }

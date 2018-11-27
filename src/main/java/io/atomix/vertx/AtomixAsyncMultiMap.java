@@ -19,7 +19,7 @@ import java.util.Collections;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import io.atomix.core.multimap.AsyncConsistentMultimap;
+import io.atomix.core.multimap.AsyncAtomicMultimap;
 import io.atomix.utils.concurrent.Futures;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
@@ -32,13 +32,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * Atomix async multi map.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 public class AtomixAsyncMultiMap<K, V> implements AsyncMultiMap<K, V> {
   private final Vertx vertx;
-  private final AsyncConsistentMultimap<K, V> map;
+  private final AsyncAtomicMultimap<K, V> map;
 
-  public AtomixAsyncMultiMap(Vertx vertx, AsyncConsistentMultimap<K, V> map) {
+  public AtomixAsyncMultiMap(Vertx vertx, AsyncAtomicMultimap<K, V> map) {
     this.vertx = checkNotNull(vertx, "vertx cannot be null");
     this.map = checkNotNull(map, "map cannot be null");
   }
@@ -66,17 +66,16 @@ public class AtomixAsyncMultiMap<K, V> implements AsyncMultiMap<K, V> {
 
   @Override
   public void removeAllForValue(V v, Handler<AsyncResult<Void>> handler) {
-    map.keySet()
-        .thenCompose(keys -> Futures.allOf(keys.stream().map(key -> map.remove(key, v)).collect(Collectors.toList())))
+    Futures.allOf(map.keySet().stream().map(key -> map.remove(key, v)).collect(Collectors.toList()))
         .whenComplete(VertxFutures.voidHandler(handler, vertx.getOrCreateContext()));
   }
 
   @Override
   public void removeAllMatching(Predicate<V> p, Handler<AsyncResult<Void>> handler) {
-    map.entries().thenCompose(entries -> Futures.allOf(entries.stream()
+    Futures.allOf(map.entries().stream()
         .filter(e -> p.test(e.getValue()))
         .map(e -> map.remove(e.getKey(), e.getValue()))
-        .collect(Collectors.toList())))
+        .collect(Collectors.toList()))
         .whenComplete(VertxFutures.voidHandler(handler, vertx.getOrCreateContext()));
   }
 }

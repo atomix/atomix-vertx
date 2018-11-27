@@ -23,7 +23,7 @@ import org.junit.Test;
 /**
  * Complex HA test.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 public class AtomixComplexHATest extends ComplexHATest {
   private final AtomixVertxTestHelper helper = new AtomixVertxTestHelper();

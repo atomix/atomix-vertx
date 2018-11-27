@@ -15,7 +15,7 @@
  */
 package io.atomix.vertx;
 
-import io.atomix.core.lock.DistributedLock;
+import io.atomix.core.lock.AtomicLock;
 import io.vertx.core.Vertx;
 import io.vertx.core.shareddata.Lock;
 
@@ -24,12 +24,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * Atomix distributed lock.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 public class AtomixLock implements Lock {
-  private final DistributedLock lock;
+  private final AtomicLock lock;
 
-  public AtomixLock(Vertx vertx, DistributedLock lock) {
+  public AtomixLock(Vertx vertx, AtomicLock lock) {
     this.lock = checkNotNull(lock, "lock cannot be null");
   }
 

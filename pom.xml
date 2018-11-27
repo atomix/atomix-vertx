@@ -21,8 +21,8 @@
     <jv>${project.version}</jv>
   
     <java.version>1.8</java.version>
-    <atomix.version>2.1.0-SNAPSHOT</atomix.version>
-    <vertx.version>3.5.0</vertx.version>
+    <atomix.version>3.1.0-beta3</atomix.version>
+    <vertx.version>3.5.4</vertx.version>
 
     <maven.source.plugin.version>2.2.1</maven.source.plugin.version>
     <maven.compiler.plugin.version>3.0</maven.compiler.plugin.version>
@@ -70,6 +70,12 @@
       <groupId>io.atomix</groupId>
       <artifactId>atomix</artifactId>
       <version>${atomix.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.atomix</groupId>
+      <artifactId>atomix-raft</artifactId>
+      <version>${atomix.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>junit</groupId>

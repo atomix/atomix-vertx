@@ -21,7 +21,7 @@ import io.vertx.test.core.ClusteredSharedCounterTest;
 /**
  * Clustered shared counter test.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 public class AtomixClusteredSharedCounterTest extends ClusteredSharedCounterTest {
   private final AtomixVertxTestHelper helper = new AtomixVertxTestHelper();

@@ -21,7 +21,7 @@ import io.vertx.test.core.ClusteredEventBusTest;
 /**
  * Clustered event bus test.
  *
- * @author <a href="http://github.com/kuujo>Jordan Halterman</a>
+ * @author <a href="http://github.com/kuujo">Jordan Halterman</a>
  */
 public class AtomixClusteredEventBusTest extends ClusteredEventBusTest {
   private final AtomixVertxTestHelper helper = new AtomixVertxTestHelper();
