@@ -73,6 +73,10 @@ public class AtomixClusterManager implements ClusterManager {
         }
       });
 
+  public AtomixClusterManager() {
+    this(Atomix.builder(Atomix.config()).build());
+  }
+
   public AtomixClusterManager(String configFile) {
     this(new File(configFile));
   }
